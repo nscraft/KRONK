@@ -1,0 +1,2024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KRONK-UP — ClickUp Time Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #16181c;
+    --surface2: #1e2128;
+    --border: #2a2d35;
+    --border-bright: #3d4250;
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.12);
+    --accent-glow: rgba(0,229,160,0.25);
+    --danger: #ff4d6a;
+    --danger-dim: rgba(255,77,106,0.12);
+    --warn: #f5a623;
+    --text-primary: #e8eaf0;
+    --text-secondary: #7a8099;
+    --text-muted: #4a5068;
+    --running-pulse: rgba(0,229,160,0.6);
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    /* ClickUp */
+    --cu: #7c3aed;
+    --cu-dim: rgba(124,58,237,0.12);
+    --cu-glow: rgba(124,58,237,0.3);
+    --cu-border: rgba(124,58,237,0.35);
+    --grid: 2fr 1fr 1fr 1fr 1fr 150px 90px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .logo-up {
+    color: var(--cu);
+    font-weight: 600;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .export-btns {
+    display: flex;
+    gap: 6px;
+  }
+
+  .header-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  .header-status .active-indicator {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* ── ClickUp Config Bar ── */
+  .cu-config-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 57px;
+    z-index: 99;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+    max-height: 64px;
+  }
+
+  .cu-config-bar.collapsed {
+    max-height: 36px;
+  }
+
+  .cu-config-inner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 32px;
+    flex-wrap: nowrap;
+    min-height: 54px;
+  }
+
+  .cu-config-bar.collapsed .cu-config-inner {
+    min-height: 36px;
+    padding: 6px 32px;
+  }
+
+  .cu-config-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .cu-config-section.hidden { display: none; }
+
+  .cu-label {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .cu-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 10px;
+    width: 240px;
+    outline: none;
+    transition: border-color 0.2s;
+    letter-spacing: 0.04em;
+  }
+
+  .cu-input:focus {
+    border-color: var(--cu);
+    box-shadow: 0 0 0 2px var(--cu-dim);
+  }
+
+  .cu-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 10px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    max-width: 180px;
+  }
+
+  .cu-select:focus { border-color: var(--cu); }
+  .cu-select:disabled { opacity: 0.4; cursor: default; }
+  .cu-select option, .cu-select optgroup { background: #1e2128; }
+
+  .cu-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .cu-config-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn:hover {
+    border-color: var(--border-bright);
+    color: var(--text-primary);
+    background: var(--surface2);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .btn-accent {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .btn-accent:hover {
+    background: rgba(0,229,160,0.2);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  .btn-cu {
+    border-color: var(--cu-border);
+    color: var(--cu);
+    background: var(--cu-dim);
+  }
+
+  .btn-cu:hover {
+    background: rgba(124,58,237,0.2);
+    box-shadow: 0 0 10px var(--cu-glow);
+  }
+
+  .btn-mic {
+    width: 44px;
+    padding: 12px;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .btn-mic.recording {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-dim);
+    animation: mic-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,77,106,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(255,77,106,0); }
+  }
+
+  .btn-export {
+    font-size: 10px;
+    padding: 7px 14px;
+    gap: 5px;
+  }
+
+  .btn-sm {
+    font-size: 10px;
+    padding: 5px 12px;
+    letter-spacing: 0.1em;
+  }
+
+  /* small CU-coloured connect btn */
+  .cu-connect-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border: 1px solid var(--cu-border);
+    background: var(--cu-dim);
+    color: var(--cu);
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .cu-connect-btn:hover {
+    background: rgba(124,58,237,0.2);
+    box-shadow: 0 0 8px var(--cu-glow);
+  }
+
+  .cu-toggle-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .cu-toggle-btn:hover {
+    border-color: var(--border-bright);
+    color: var(--text-secondary);
+  }
+
+  /* ── ClickUp status badge ── */
+  .cu-status {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .cu-status-disconnected { color: var(--text-muted); border-color: var(--border); }
+  .cu-status-connecting   { color: var(--warn); border-color: rgba(245,166,35,0.3); }
+  .cu-status-connected    { color: var(--cu); border-color: var(--cu-border); }
+  .cu-status-error        { color: var(--danger); border-color: rgba(255,77,106,0.3); }
+
+  /* ── Main layout ── */
+  .main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  .input-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+
+  .input-wrap { flex: 1; position: relative; }
+
+  .task-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .task-input::placeholder { color: var(--text-muted); }
+
+  .task-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  /* ── Table ── */
+  .table-header {
+    display: grid;
+    grid-template-columns: var(--grid);
+    padding: 8px 16px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-header .cu-col-header {
+    color: var(--cu);
+    opacity: 0.7;
+  }
+
+  .task-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+  }
+
+  .task-block {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+
+  .task-block:last-child { border-bottom: none; }
+
+  .task-block.is-running {
+    background: rgba(0,229,160,0.03);
+    border-left: 2px solid var(--accent);
+  }
+
+  .task-row {
+    display: grid;
+    grid-template-columns: var(--grid);
+    align-items: center;
+    min-height: 48px;
+  }
+
+  .task-cell {
+    padding: 10px 16px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  .task-cell:last-child { border-right: none; }
+
+  .cell-input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 100%;
+    outline: none;
+    padding: 2px 4px;
+    transition: background 0.15s;
+    border-radius: 2px;
+  }
+
+  .cell-input:focus {
+    background: var(--surface2);
+    box-shadow: 0 0 0 1px var(--border-bright);
+  }
+
+  .cell-input.task-name-input {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .cell-input.group-input {
+    color: var(--text-secondary);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Parent Task Dropdown ── */
+  .parent-dropdown {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    z-index: 500;
+    max-height: 160px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .parent-dropdown-item {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-secondary);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .parent-dropdown-item:hover {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .parent-dropdown-empty {
+    padding: 6px 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Time Entry Rows ── */
+  .time-entries { display: flex; flex-direction: column; }
+
+  .time-entry-row {
+    display: grid;
+    grid-template-columns: var(--grid);
+    min-height: 36px;
+    align-items: center;
+    border-top: 1px solid rgba(42,45,53,0.6);
+    background: rgba(0,0,0,0.15);
+  }
+
+  .time-entry-row.is-active-entry { background: rgba(0,229,160,0.04); }
+
+  .te-cell {
+    padding: 8px 16px;
+    border-right: 1px solid rgba(42,45,53,0.5);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .te-cell:last-child { border-right: none; }
+
+  .te-cell.label-cell {
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .time-val {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+
+  .time-val.running {
+    color: var(--accent);
+    animation: flicker 3s ease-in-out infinite;
+  }
+
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    97% { opacity: 0.6; }
+  }
+
+  .duration-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.06em;
+  }
+
+  .duration-val.running { color: var(--accent); }
+
+  /* ── Time edit input ── */
+  .time-edit-input {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 2px 5px;
+    width: 86px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    border-radius: 2px;
+    cursor: text;
+  }
+
+  .time-edit-input:hover { border-color: var(--border-bright); }
+
+  .time-edit-input:focus {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  .time-edit-input.invalid {
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 0 2px var(--danger-dim);
+  }
+
+  /* ── Start/Stop Button ── */
+  .start-stop-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 66px;
+    justify-content: center;
+  }
+
+  .start-stop-btn.start {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.3);
+  }
+
+  .start-stop-btn.start:hover {
+    background: rgba(0,229,160,0.2);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  .start-stop-btn.stop {
+    background: var(--danger-dim);
+    color: var(--danger);
+    border: 1px solid rgba(255,77,106,0.3);
+    animation: stop-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes stop-pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 8px rgba(255,77,106,0.3); }
+  }
+
+  .start-stop-btn.stop:hover { background: rgba(255,77,106,0.2); }
+
+  /* ── Delete buttons ── */
+  .delete-entry-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    margin-left: 6px;
+    font-family: var(--mono);
+  }
+
+  .time-entry-row:hover .delete-entry-btn { opacity: 1; }
+  .delete-entry-btn:hover { color: var(--danger); }
+
+  .delete-task-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    margin-left: 4px;
+  }
+
+  .task-row:hover .delete-task-btn,
+  .task-block:hover .delete-task-btn { opacity: 1; }
+  .delete-task-btn:hover { color: var(--danger); }
+
+  /* ── Entry badge / totals ── */
+  .entry-badge {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .task-totals {
+    display: grid;
+    grid-template-columns: var(--grid);
+    border-top: 1px solid var(--border);
+    min-height: 32px;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .tot-cell {
+    padding: 6px 16px;
+    border-right: 1px solid rgba(42,45,53,0.5);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  .tot-cell:last-child { border-right: none; }
+
+  .tot-duration {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── ClickUp column ── */
+  .cu-col {
+    border-left: 1px solid rgba(124,58,237,0.15);
+  }
+
+  .cu-link-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--cu-border);
+    background: var(--cu-dim);
+    color: var(--cu);
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .cu-link-btn:hover {
+    background: rgba(124,58,237,0.2);
+    box-shadow: 0 0 8px var(--cu-glow);
+  }
+
+  .cu-linked-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cu-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--cu);
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border: 1px solid var(--cu-border);
+    background: var(--cu-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+    flex-shrink: 1;
+  }
+
+  .cu-push-btn {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--cu-border);
+    background: var(--cu-dim);
+    color: var(--cu);
+    padding: 3px 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .cu-push-btn:hover {
+    background: rgba(124,58,237,0.2);
+    box-shadow: 0 0 6px var(--cu-glow);
+  }
+
+  .cu-synced-label {
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  .cu-unlink-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 3px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+
+  .task-row:hover .cu-unlink-btn,
+  .task-block:hover .cu-unlink-btn { opacity: 1; }
+  .cu-unlink-btn:hover { color: var(--danger); }
+
+  /* entry sync dot */
+  .cu-sync-dot {
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+
+  .cu-sync-dot.synced { color: var(--accent); }
+  .cu-sync-dot.pending { color: var(--text-muted); }
+  .cu-sync-dot.na { color: var(--border); }
+
+  /* ── ClickUp Task Link Search Dropdown ── */
+  .cu-link-dropdown {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--cu-border);
+    z-index: 600;
+    width: 280px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    display: none;
+  }
+
+  .cu-link-search {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cu-link-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 12px;
+    outline: none;
+    letter-spacing: 0.03em;
+  }
+
+  .cu-link-search-input::placeholder { color: var(--text-muted); }
+
+  .cu-link-results {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .cu-link-item {
+    padding: 7px 12px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-secondary);
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid rgba(42,45,53,0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cu-link-item:last-child { border-bottom: none; }
+  .cu-link-item:hover { background: var(--cu-dim); color: var(--cu); }
+
+  .cu-link-create {
+    padding: 7px 12px;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--cu);
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cu-link-create:hover { background: var(--cu-dim); }
+
+  .cu-link-empty {
+    padding: 10px 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  .cu-link-loading {
+    padding: 10px 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  .cu-no-list-msg {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  /* ── Misc ── */
+  .empty-state {
+    padding: 64px 32px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border);
+  }
+
+  .empty-state .bigtext {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+  }
+
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+
+  .toast {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    color: var(--text-secondary);
+    animation: toast-in 0.2s ease;
+    max-width: 340px;
+  }
+
+  .toast.cu-toast { border-color: var(--cu-border); color: var(--cu); }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .mic-hint { font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; margin-top: 6px; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">KRONK<span class="logo-up">-UP</span></div>
+  <div class="header-right">
+    <div class="export-btns">
+      <button class="btn btn-export" id="exportCsvBtn">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+      <button class="btn btn-export" id="exportJsonBtn">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        JSON
+      </button>
+    </div>
+    <button class="btn btn-export btn-cu" id="cuPushAllBtn" style="display:none">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 14 12 9 17 14"/><line x1="12" y1="9" x2="12" y2="21"/></svg>
+      Push All
+    </button>
+    <div class="header-status" id="headerStatus">
+      <span class="active-indicator" id="activeIndicator" style="display:none"></span>
+      <span id="statusText">NO ACTIVE TASK</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── ClickUp Config Bar ── -->
+<div class="cu-config-bar" id="cuConfigBar">
+  <div class="cu-config-inner">
+
+    <div class="cu-config-section">
+      <span class="cu-label">API Key</span>
+      <input type="password" class="cu-input" id="cuApiKey" placeholder="pk_xxxxxxxxxxxx" autocomplete="off" />
+      <button class="cu-connect-btn" id="cuConnectBtn">Connect</button>
+      <span class="cu-status cu-status-disconnected" id="cuStatus">Disconnected</span>
+    </div>
+
+    <div class="cu-divider"></div>
+
+    <div class="cu-config-section" id="cuSelectors" style="display:none">
+      <span class="cu-label">Space</span>
+      <select class="cu-select" id="cuSpaceSelect">
+        <option value="">— select —</option>
+      </select>
+      <span class="cu-label">List</span>
+      <select class="cu-select" id="cuListSelect" disabled>
+        <option value="">— select —</option>
+      </select>
+    </div>
+
+    <div class="cu-config-actions">
+      <button class="cu-toggle-btn" id="cuToggleBtn">▲ Hide</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main">
+  <div class="section-label">New Task</div>
+  <div class="input-bar">
+    <div class="input-wrap">
+      <input type="text" class="task-input" id="taskNameInput" placeholder="Enter task name or use microphone →" autocomplete="off" />
+    </div>
+    <button class="btn btn-mic" id="micBtn" title="Click to toggle microphone">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="2" width="6" height="12" rx="3"/>
+        <path d="M19 10a7 7 0 0 1-14 0"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+        <line x1="8" y1="22" x2="16" y2="22"/>
+      </svg>
+    </button>
+    <button class="btn btn-accent" id="addTaskBtn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Task
+    </button>
+  </div>
+  <div class="mic-hint" id="micHint">— microphone: click to toggle recording</div>
+
+  <div style="height:24px"></div>
+  <div class="section-label">Task Log</div>
+
+  <div class="table-header">
+    <div>Task Name</div>
+    <div>Parent Task</div>
+    <div>Start Time</div>
+    <div>End Time</div>
+    <div>Duration</div>
+    <div class="cu-col-header">ClickUp</div>
+    <div>Action</div>
+  </div>
+
+  <div class="task-list" id="taskList">
+    <div class="empty-state">
+      <div class="bigtext">No tasks yet</div>
+      Type a task name above and click Add Task
+    </div>
+  </div>
+</div>
+
+<!-- ── ClickUp Task Link Search Dropdown ── -->
+<div class="cu-link-dropdown" id="cuLinkDropdown">
+  <div class="cu-link-search">
+    <input type="text" class="cu-link-search-input" id="cuLinkSearchInput" placeholder="Search ClickUp tasks…" autocomplete="off" />
+  </div>
+  <div class="cu-link-results" id="cuLinkResults">
+    <div class="cu-link-loading">Loading tasks…</div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// KRONK core state
+// ════════════════════════════════════════════════════════════════════════════
+let tasks = [];
+// task shape: { id, name, group, entries, clickupTaskId, clickupTaskName }
+// entry shape: { id, startTime, endTime, pushedToClickup }
+let idCounter = 0;
+let entryIdCounter = 0;
+let liveTimerInterval = null;
+let recognition = null;
+let isRecording = false;
+
+const $ = id => document.getElementById(id);
+
+function uid()  { return ++idCounter; }
+function euid() { return ++entryIdCounter; }
+
+function formatTime(date) {
+  if (!date) return '—';
+  return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function formatDuration(ms) {
+  if (ms == null || ms < 0) return '—';
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
+  if (m > 0) return `${m}m ${String(sec).padStart(2,'0')}s`;
+  return `${sec}s`;
+}
+
+function totalTaskDuration(task) {
+  return task.entries.reduce((sum, e) => {
+    if (e.startTime && e.endTime) return sum + (e.endTime - e.startTime);
+    return sum;
+  }, 0);
+}
+
+function getRunningEntry(task) {
+  return task.entries.find(e => e.startTime && !e.endTime);
+}
+
+function stopAllRunning(exceptTaskId) {
+  const now = new Date();
+  tasks.forEach(task => {
+    if (task.id === exceptTaskId) return;
+    task.entries.forEach(e => { if (e.startTime && !e.endTime) e.endTime = now; });
+  });
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Toasts
+// ════════════════════════════════════════════════════════════════════════════
+function toast(msg, type = '', duration = 2800) {
+  const t = document.createElement('div');
+  t.className = `toast${type ? ' ' + type : ''}`;
+  t.textContent = msg;
+  $('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ClickUp state
+// ════════════════════════════════════════════════════════════════════════════
+const CU_BASE = 'https://api.clickup.com/api/v2';
+
+let cu = {
+  apiKey: '',
+  workspaceId: '',
+  spaceId: '',
+  listId: '',
+  connected: false,
+  listTasks: [],
+};
+
+function cuSave() {
+  localStorage.setItem('kronkup_cu', JSON.stringify({
+    apiKey: cu.apiKey,
+    workspaceId: cu.workspaceId,
+    spaceId: cu.spaceId,
+    listId: cu.listId,
+  }));
+}
+
+function cuLoad() {
+  try {
+    const s = JSON.parse(localStorage.getItem('kronkup_cu') || '{}');
+    cu.apiKey       = s.apiKey       || '';
+    cu.workspaceId  = s.workspaceId  || '';
+    cu.spaceId      = s.spaceId      || '';
+    cu.listId       = s.listId       || '';
+  } catch(e) {}
+}
+
+async function cuApi(path, opts = {}) {
+  const res = await fetch(`${CU_BASE}${path}`, {
+    ...opts,
+    headers: {
+      'Authorization': cu.apiKey,
+      'Content-Type': 'application/json',
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`ClickUp ${res.status}: ${body}`);
+  }
+  return res.json();
+}
+
+function setCuStatus(state, label) {
+  const el = $('cuStatus');
+  el.className = `cu-status cu-status-${state}`;
+  const map = {
+    disconnected: 'Disconnected',
+    connecting:   'Connecting…',
+    connected:    label ? `Connected: ${label}` : 'Connected',
+    error:        label || 'Error',
+  };
+  el.textContent = map[state] || state;
+}
+
+// ── Connect ──────────────────────────────────────────────────────────────────
+async function cuConnect() {
+  const key = $('cuApiKey').value.trim();
+  if (!key) { toast('Enter a ClickUp API key first'); return; }
+  cu.apiKey = key;
+  setCuStatus('connecting');
+  $('cuConnectBtn').disabled = true;
+
+  try {
+    const data = await cuApi('/team');
+    const ws = data.teams[0];
+    cu.workspaceId = ws.id;
+    cu.connected = true;
+    cuSave();
+    setCuStatus('connected', ws.name);
+    $('cuSelectors').style.display = 'flex';
+    await cuLoadSpaces();
+    // restore previous selections
+    if (cu.spaceId) {
+      $('cuSpaceSelect').value = cu.spaceId;
+      await cuLoadLists(cu.spaceId, true);
+    }
+    render();
+  } catch(e) {
+    cu.connected = false;
+    setCuStatus('error', 'Invalid key or network error');
+    toast('ClickUp connection failed — check your API key');
+  } finally {
+    $('cuConnectBtn').disabled = false;
+  }
+}
+
+// ── Spaces ───────────────────────────────────────────────────────────────────
+async function cuLoadSpaces() {
+  const data = await cuApi(`/team/${cu.workspaceId}/space?archived=false`);
+  const sel = $('cuSpaceSelect');
+  sel.innerHTML = '<option value="">— select space —</option>';
+  data.spaces.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Lists ────────────────────────────────────────────────────────────────────
+async function cuLoadLists(spaceId, restoreSaved = false) {
+  if (!spaceId) return;
+  cu.spaceId = spaceId;
+  cuSave();
+
+  const listSel = $('cuListSelect');
+  listSel.innerHTML = '<option value="">Loading…</option>';
+  listSel.disabled = true;
+
+  try {
+    // Parallel: folderless lists + folders
+    const [flData, foldersData] = await Promise.all([
+      cuApi(`/space/${spaceId}/list?archived=false`),
+      cuApi(`/space/${spaceId}/folder?archived=false`),
+    ]);
+
+    // Fetch lists for each folder in parallel
+    const folderListResults = await Promise.all(
+      foldersData.folders.map(f =>
+        cuApi(`/folder/${f.id}/list?archived=false`).then(d => ({ folder: f, lists: d.lists }))
+      )
+    );
+
+    // Build HTML
+    let html = '<option value="">— select list —</option>';
+
+    // Folderless lists first
+    if (flData.lists.length > 0) {
+      flData.lists.forEach(l => {
+        html += `<option value="${l.id}">${escHtml(l.name)}</option>`;
+      });
+    }
+
+    // Folder groups
+    folderListResults.forEach(({ folder, lists }) => {
+      if (lists.length === 0) return;
+      html += `<optgroup label="${escHtml(folder.name)}">`;
+      lists.forEach(l => { html += `<option value="${l.id}">${escHtml(l.name)}</option>`; });
+      html += `</optgroup>`;
+    });
+
+    listSel.innerHTML = html;
+    listSel.disabled = false;
+
+    if (restoreSaved && cu.listId) {
+      listSel.value = cu.listId;
+      if (listSel.value) await cuCacheListTasks();
+    }
+  } catch(e) {
+    listSel.innerHTML = '<option value="">Error loading lists</option>';
+    toast('Failed to load ClickUp lists');
+  }
+  render();
+}
+
+// ── Cache tasks for selected list ────────────────────────────────────────────
+async function cuCacheListTasks() {
+  if (!cu.listId) { cu.listTasks = []; return; }
+  try {
+    // ClickUp paginates at 100; page 0 is usually sufficient for linking
+    const data = await cuApi(`/list/${cu.listId}/task?archived=false&page=0&subtasks=true`);
+    cu.listTasks = data.tasks || [];
+  } catch(e) {
+    cu.listTasks = [];
+    toast('Could not load task list from ClickUp');
+  }
+}
+
+// ── Link / Unlink ────────────────────────────────────────────────────────────
+function cuLinkTask(kronikId, cuTaskId, cuTaskName) {
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task) return;
+  task.clickupTaskId   = cuTaskId;
+  task.clickupTaskName = cuTaskName;
+  hideLinkDropdown();
+  render();
+  toast(`Linked → ${cuTaskName}`, 'cu-toast');
+}
+
+function cuUnlinkTask(kronikId) {
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task) return;
+  task.clickupTaskId   = null;
+  task.clickupTaskName = '';
+  render();
+}
+
+async function cuCreateAndLink(kronikId) {
+  if (!cu.listId) { toast('Select a ClickUp list first'); return; }
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task) return;
+  hideLinkDropdown();
+  try {
+    const data = await cuApi(`/list/${cu.listId}/task`, {
+      method: 'POST',
+      body: JSON.stringify({ name: task.name }),
+    });
+    // Add to cache
+    cu.listTasks.push(data);
+    cuLinkTask(kronikId, data.id, data.name);
+  } catch(e) {
+    toast('Failed to create ClickUp task');
+  }
+}
+
+// ── Push time entries ────────────────────────────────────────────────────────
+async function cuPushEntries(kronikId) {
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task || !task.clickupTaskId) return;
+
+  const pending = task.entries.filter(e => e.startTime && e.endTime && !e.pushedToClickup);
+  if (pending.length === 0) { toast('No new entries to push for this task'); return; }
+
+  let pushed = 0;
+  for (const entry of pending) {
+    try {
+      await cuApi(`/task/${task.clickupTaskId}/time`, {
+        method: 'POST',
+        body: JSON.stringify({
+          start: entry.startTime.getTime(),
+          end:   entry.endTime.getTime(),
+          time:  entry.endTime.getTime() - entry.startTime.getTime(),
+        }),
+      });
+      entry.pushedToClickup = true;
+      pushed++;
+    } catch(e) {
+      toast(`Entry #${task.entries.indexOf(entry) + 1} failed to push`);
+    }
+  }
+
+  if (pushed > 0) {
+    toast(`↑ Pushed ${pushed} ${pushed === 1 ? 'entry' : 'entries'} for "${task.name}"`, 'cu-toast');
+    render();
+  }
+}
+
+async function cuPushAll() {
+  const linked = tasks.filter(t => t.clickupTaskId);
+  if (linked.length === 0) { toast('No linked tasks to push'); return; }
+
+  const btn = $('cuPushAllBtn');
+  btn.disabled = true;
+  btn.textContent = 'Pushing…';
+
+  for (const task of linked) {
+    await cuPushEntries(task.id);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 14 12 9 17 14"/><line x1="12" y1="9" x2="12" y2="21"/></svg> Push All`;
+}
+
+// ── ClickUp column render helpers ────────────────────────────────────────────
+function renderCuTaskCell(task) {
+  if (!cu.connected) {
+    return `<span class="cu-no-list-msg">—</span>`;
+  }
+  if (!cu.listId) {
+    return `<span class="cu-no-list-msg">Select list ↑</span>`;
+  }
+  if (!task.clickupTaskId) {
+    return `<button class="cu-link-btn" data-cu-link="${task.id}">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Link
+    </button>`;
+  }
+
+  const pendingCount = task.entries.filter(e => e.startTime && e.endTime && !e.pushedToClickup).length;
+  const shortName = task.clickupTaskName.length > 16
+    ? task.clickupTaskName.slice(0, 16) + '…'
+    : task.clickupTaskName;
+
+  return `<div class="cu-linked-wrap">
+    <span class="cu-badge" title="${escHtml(task.clickupTaskName)}">
+      <svg width="6" height="6" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg>
+      ${escHtml(shortName)}
+    </span>
+    ${pendingCount > 0
+      ? `<button class="cu-push-btn" data-cu-push="${task.id}" title="Push ${pendingCount} unsynced entr${pendingCount===1?'y':'ies'}">↑${pendingCount}</button>`
+      : `<span class="cu-synced-label">✓</span>`
+    }
+    <button class="cu-unlink-btn" data-cu-unlink="${task.id}" title="Unlink">✕</button>
+  </div>`;
+}
+
+function renderCuEntryCell(entry) {
+  if (!cu.connected || !entry.startTime) {
+    return `<span class="cu-sync-dot na">—</span>`;
+  }
+  if (!entry.endTime) {
+    return `<span class="cu-sync-dot na">—</span>`;
+  }
+  if (entry.pushedToClickup) {
+    return `<span class="cu-sync-dot synced" title="Pushed to ClickUp">✓</span>`;
+  }
+  return `<span class="cu-sync-dot pending" title="Not yet pushed">○</span>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Render
+// ════════════════════════════════════════════════════════════════════════════
+function render() {
+  const list = $('taskList');
+
+  // Header status
+  const runningTask = tasks.find(t => getRunningEntry(t));
+  $('activeIndicator').style.display = runningTask ? 'inline-block' : 'none';
+  $('statusText').textContent = runningTask ? `TRACKING: ${runningTask.name || 'Unnamed'}` : 'NO ACTIVE TASK';
+
+  // Push All button visibility
+  const hasLinked = tasks.some(t => t.clickupTaskId);
+  $('cuPushAllBtn').style.display = (cu.connected && hasLinked) ? 'flex' : 'none';
+
+  if (tasks.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="bigtext">No tasks yet</div>Type a task name above and click Add Task</div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  tasks.forEach(task => {
+    const running = getRunningEntry(task);
+    const block = document.createElement('div');
+    block.className = `task-block${running ? ' is-running' : ''}`;
+    block.dataset.taskId = task.id;
+
+    // ── Task row ──
+    const taskRow = document.createElement('div');
+    taskRow.className = 'task-row';
+    taskRow.innerHTML = `
+      <div class="task-cell">
+        <input class="cell-input task-name-input" type="text" value="${escHtml(task.name)}" placeholder="Task name" data-field="name" data-task-id="${task.id}" />
+        <button class="delete-task-btn" data-delete-task="${task.id}" title="Delete task">✕</button>
+      </div>
+      <div class="task-cell">
+        <input class="cell-input group-input" type="text" value="${escHtml(task.group)}" placeholder="Parent Task" data-field="group" data-task-id="${task.id}" />
+      </div>
+      <div class="task-cell" style="grid-column: span 3; color: var(--text-muted); font-size:10px; letter-spacing:0.1em;">
+        ${task.entries.length} ${task.entries.length === 1 ? 'entry' : 'entries'}
+      </div>
+      <div class="task-cell cu-col" style="padding: 8px 12px;">
+        ${renderCuTaskCell(task)}
+      </div>
+      <div class="task-cell" style="justify-content:center;">
+        <button class="start-stop-btn ${running ? 'stop' : 'start'}" data-task-id="${task.id}">
+          ${running
+            ? `<svg width="8" height="8" viewBox="0 0 10 10"><rect width="10" height="10" fill="currentColor"/></svg> STOP`
+            : `<svg width="8" height="10" viewBox="0 0 8 10"><polygon points="0,0 8,5 0,10" fill="currentColor"/></svg> START`
+          }
+        </button>
+      </div>
+    `;
+    block.appendChild(taskRow);
+
+    // ── Time entries ──
+    if (task.entries.length > 0) {
+      const entriesDiv = document.createElement('div');
+      entriesDiv.className = 'time-entries';
+
+      task.entries.forEach((entry, idx) => {
+        const isActive = entry.startTime && !entry.endTime;
+        const dur = (entry.startTime && entry.endTime)
+          ? formatDuration(entry.endTime - entry.startTime) : null;
+
+        const row = document.createElement('div');
+        row.className = `time-entry-row${isActive ? ' is-active-entry' : ''}`;
+        row.dataset.entryId = entry.id;
+        row.innerHTML = `
+          <div class="te-cell label-cell" style="padding-left:28px;">
+            <span class="entry-badge">#${idx + 1}</span>
+          </div>
+          <div class="te-cell" style="color:var(--text-muted); font-size:10px;"></div>
+          <div class="te-cell">
+            ${isActive
+              ? `<span class="time-val">${formatTime(entry.startTime)}</span>`
+              : `<input class="time-edit-input" type="text" value="${formatTime(entry.startTime)}" title="Edit start time (HH:MM:SS)" data-time-field="startTime" data-task-id="${task.id}" data-entry-id="${entry.id}" />`
+            }
+          </div>
+          <div class="te-cell">
+            ${isActive
+              ? `<span class="time-val running">RUNNING</span>`
+              : `<input class="time-edit-input" type="text" value="${formatTime(entry.endTime)}" title="Edit end time (HH:MM:SS)" data-time-field="endTime" data-task-id="${task.id}" data-entry-id="${entry.id}" />`
+            }
+          </div>
+          <div class="te-cell">
+            ${isActive
+              ? `<span class="duration-val running" data-live="${task.id}-${entry.id}">—</span>`
+              : `<span class="duration-val">${dur !== null ? dur : '—'}</span>`
+            }
+          </div>
+          <div class="te-cell cu-col" style="justify-content:center; padding: 6px 12px;">
+            ${renderCuEntryCell(entry)}
+          </div>
+          <div class="te-cell" style="justify-content:center;">
+            <button class="delete-entry-btn" data-delete-entry="${entry.id}" data-task-id="${task.id}" title="Delete entry">✕</button>
+          </div>
+        `;
+        entriesDiv.appendChild(row);
+      });
+
+      // Totals row
+      const totalMs = totalTaskDuration(task);
+      const totRow = document.createElement('div');
+      totRow.className = 'task-totals';
+      totRow.innerHTML = `
+        <div class="tot-cell" style="padding-left:28px; font-size:9px; letter-spacing:0.12em;">TOTAL</div>
+        <div class="tot-cell"></div>
+        <div class="tot-cell"></div>
+        <div class="tot-cell"></div>
+        <div class="tot-cell"><span class="tot-duration">${totalMs > 0 ? formatDuration(totalMs) : '—'}</span></div>
+        <div class="tot-cell cu-col"></div>
+        <div class="tot-cell"></div>
+      `;
+      entriesDiv.appendChild(totRow);
+      block.appendChild(entriesDiv);
+    }
+
+    list.appendChild(block);
+  });
+
+  startLiveTimer();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Live Duration Timer
+// ════════════════════════════════════════════════════════════════════════════
+function startLiveTimer() {
+  if (liveTimerInterval) clearInterval(liveTimerInterval);
+  liveTimerInterval = setInterval(() => {
+    const cells = document.querySelectorAll('[data-live]');
+    if (!cells.length) return;
+    const now = new Date();
+    cells.forEach(cell => {
+      const [taskId, entryId] = cell.dataset.live.split('-').map(Number);
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+      const entry = task.entries.find(e => e.id === entryId);
+      if (!entry || !entry.startTime) return;
+      cell.textContent = formatDuration(now - entry.startTime);
+    });
+  }, 1000);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Task / Entry Actions
+// ════════════════════════════════════════════════════════════════════════════
+function addTask(name) {
+  if (!name.trim()) { toast('Please enter a task name'); return; }
+  tasks.push({
+    id: uid(), name: name.trim(), group: '', entries: [],
+    clickupTaskId: null, clickupTaskName: '',
+  });
+  render();
+  $('taskNameInput').value = '';
+}
+
+function startTask(taskId) {
+  stopAllRunning(taskId);
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.entries.push({ id: euid(), startTime: new Date(), endTime: null, pushedToClickup: false });
+  render();
+  toast(`Started: ${task.name || 'task'}`);
+}
+
+function stopTask(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const entry = getRunningEntry(task);
+  if (entry) {
+    entry.endTime = new Date();
+    toast(`Stopped: ${task.name || 'task'} — ${formatDuration(entry.endTime - entry.startTime)}`);
+  }
+  render();
+}
+
+function deleteTask(taskId) {
+  tasks = tasks.filter(t => t.id !== taskId);
+  render();
+}
+
+function deleteEntry(taskId, entryId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.entries = task.entries.filter(e => e.id !== entryId);
+  render();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Event Delegation — Task List
+// ════════════════════════════════════════════════════════════════════════════
+$('taskList').addEventListener('click', e => {
+  const ssBtn = e.target.closest('.start-stop-btn');
+  if (ssBtn) {
+    const id = Number(ssBtn.dataset.taskId);
+    ssBtn.classList.contains('start') ? startTask(id) : stopTask(id);
+    return;
+  }
+  const delTask = e.target.closest('[data-delete-task]');
+  if (delTask) { deleteTask(Number(delTask.dataset.deleteTask)); return; }
+
+  const delEntry = e.target.closest('[data-delete-entry]');
+  if (delEntry) { deleteEntry(Number(delEntry.dataset.taskId), Number(delEntry.dataset.deleteEntry)); return; }
+
+  // ClickUp: link button
+  const cuLink = e.target.closest('[data-cu-link]');
+  if (cuLink) { showLinkDropdown(Number(cuLink.dataset.cuLink), cuLink); return; }
+
+  // ClickUp: push button
+  const cuPush = e.target.closest('[data-cu-push]');
+  if (cuPush) { cuPushEntries(Number(cuPush.dataset.cuPush)); return; }
+
+  // ClickUp: unlink button
+  const cuUnlink = e.target.closest('[data-cu-unlink]');
+  if (cuUnlink) { cuUnlinkTask(Number(cuUnlink.dataset.cuUnlink)); return; }
+});
+
+// Inline edit task fields
+$('taskList').addEventListener('change', e => {
+  const input = e.target.closest('[data-field]');
+  if (!input) return;
+  const taskId = Number(input.dataset.taskId);
+  const field  = input.dataset.field;
+  const task   = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task[field] = input.value;
+  if (field === 'name') {
+    const running = tasks.find(t => getRunningEntry(t));
+    if (running && running.id === taskId) render();
+  }
+});
+
+// Inline edit time entry fields
+$('taskList').addEventListener('change', e => {
+  const input = e.target.closest('[data-time-field]');
+  if (!input) return;
+  const taskId  = Number(input.dataset.taskId);
+  const entryId = Number(input.dataset.entryId);
+  const field   = input.dataset.timeField;
+  const task    = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const entry = task.entries.find(en => en.id === entryId);
+  if (!entry) return;
+
+  const parsed = parseTimeEdit(input.value, entry[field]);
+  if (!parsed) {
+    input.classList.add('invalid');
+    toast('Invalid time — use HH:MM:SS');
+    input.value = formatTime(entry[field]);
+    setTimeout(() => input.classList.remove('invalid'), 1500);
+    return;
+  }
+  if (field === 'startTime' && entry.endTime && parsed >= entry.endTime) {
+    input.classList.add('invalid');
+    toast('Start time must be before end time');
+    input.value = formatTime(entry.startTime);
+    setTimeout(() => input.classList.remove('invalid'), 1500);
+    return;
+  }
+  if (field === 'endTime' && parsed <= entry.startTime) {
+    input.classList.add('invalid');
+    toast('End time must be after start time');
+    input.value = formatTime(entry.endTime);
+    setTimeout(() => input.classList.remove('invalid'), 1500);
+    return;
+  }
+
+  // Time edited — mark as unsynced so it can be re-pushed
+  if (entry.pushedToClickup) entry.pushedToClickup = false;
+  entry[field] = parsed;
+  render();
+});
+
+function parseTimeEdit(value, baseDate) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const h = Number(match[1]), m = Number(match[2]), s = Number(match[3]);
+  if (h > 23 || m > 59 || s > 59) return null;
+  const d = new Date(baseDate);
+  d.setHours(h, m, s, 0);
+  return d;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Add Task
+// ════════════════════════════════════════════════════════════════════════════
+$('addTaskBtn').addEventListener('click', () => addTask($('taskNameInput').value));
+$('taskNameInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask($('taskNameInput').value); });
+
+// ════════════════════════════════════════════════════════════════════════════
+// Parent Task Dropdown
+// ════════════════════════════════════════════════════════════════════════════
+const parentDL = document.createElement('div');
+parentDL.className = 'parent-dropdown';
+document.body.appendChild(parentDL);
+let activeGroupInput = null;
+
+function getParentSuggestions(query) {
+  const seen = new Set(); const opts = [];
+  tasks.forEach(t => {
+    if (t.name  && !seen.has(t.name))  { seen.add(t.name);  opts.push(t.name);  }
+    if (t.group && !seen.has(t.group)) { seen.add(t.group); opts.push(t.group); }
+  });
+  opts.sort((a, b) => a.localeCompare(b));
+  if (!query) return opts;
+  const q = query.toLowerCase();
+  return opts.filter(o => o.toLowerCase().includes(q));
+}
+
+function renderParentDropdown(query) {
+  const items = getParentSuggestions(query);
+  parentDL.innerHTML = items.length
+    ? items.map(o => `<div class="parent-dropdown-item" data-value="${escHtml(o)}">${escHtml(o)}</div>`).join('')
+    : `<div class="parent-dropdown-empty">No suggestions</div>`;
+}
+
+function positionParentDropdown(input) {
+  const r = input.getBoundingClientRect();
+  parentDL.style.top = (r.bottom + 2) + 'px';
+  parentDL.style.left = r.left + 'px';
+  parentDL.style.minWidth = Math.max(r.width, 180) + 'px';
+}
+
+document.addEventListener('mousedown', e => {
+  // Parent task dropdown
+  if (e.target.classList.contains('group-input')) {
+    activeGroupInput = e.target;
+    renderParentDropdown('');
+    positionParentDropdown(e.target);
+    parentDL.style.display = 'block';
+  } else if (!parentDL.contains(e.target)) {
+    parentDL.style.display = 'none';
+    activeGroupInput = null;
+  }
+
+  // ClickUp link dropdown
+  if (!$('cuLinkDropdown').contains(e.target) && !e.target.closest('[data-cu-link]')) {
+    hideLinkDropdown();
+  }
+});
+
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('group-input') && activeGroupInput === e.target) {
+    renderParentDropdown(e.target.value);
+    positionParentDropdown(e.target);
+  }
+});
+
+parentDL.addEventListener('mousedown', e => {
+  const item = e.target.closest('.parent-dropdown-item');
+  if (!item || !activeGroupInput) return;
+  e.preventDefault();
+  activeGroupInput.value = item.dataset.value;
+  activeGroupInput.dispatchEvent(new Event('change', { bubbles: true }));
+  parentDL.style.display = 'none';
+  activeGroupInput = null;
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// ClickUp Task Link Dropdown
+// ════════════════════════════════════════════════════════════════════════════
+let activeLinkKronikId = null;
+
+function showLinkDropdown(kronikId, triggerBtn) {
+  activeLinkKronikId = kronikId;
+  const dd = $('cuLinkDropdown');
+  const rect = triggerBtn.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.display = 'block';
+  renderLinkResults('');
+  $('cuLinkSearchInput').value = '';
+  $('cuLinkSearchInput').focus();
+}
+
+function hideLinkDropdown() {
+  $('cuLinkDropdown').style.display = 'none';
+  activeLinkKronikId = null;
+}
+
+function renderLinkResults(query) {
+  const container = $('cuLinkResults');
+  let items = cu.listTasks;
+  if (query) {
+    const q = query.toLowerCase();
+    items = items.filter(t => t.name.toLowerCase().includes(q));
+  }
+
+  const taskId = activeLinkKronikId;
+  let html = `<div class="cu-link-create" data-action="create" data-kronik-id="${taskId}">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Create new ClickUp task
+  </div>`;
+
+  if (items.length === 0) {
+    html += `<div class="cu-link-empty">No matching tasks in list</div>`;
+  } else {
+    items.slice(0, 30).forEach(t => {
+      html += `<div class="cu-link-item" data-cu-id="${escHtml(t.id)}" data-cu-name="${escHtml(t.name)}" data-kronik-id="${taskId}">${escHtml(t.name)}</div>`;
+    });
+  }
+  container.innerHTML = html;
+}
+
+$('cuLinkSearchInput').addEventListener('input', e => {
+  renderLinkResults(e.target.value);
+});
+
+$('cuLinkResults').addEventListener('mousedown', e => {
+  e.preventDefault();
+  const item = e.target.closest('.cu-link-item');
+  if (item) {
+    cuLinkTask(Number(item.dataset.kronikId), item.dataset.cuId, item.dataset.cuName);
+    return;
+  }
+  const create = e.target.closest('[data-action="create"]');
+  if (create) {
+    cuCreateAndLink(Number(create.dataset.kronikId));
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// ClickUp Config Bar events
+// ════════════════════════════════════════════════════════════════════════════
+$('cuConnectBtn').addEventListener('click', cuConnect);
+$('cuApiKey').addEventListener('keydown', e => { if (e.key === 'Enter') cuConnect(); });
+
+$('cuSpaceSelect').addEventListener('change', async e => {
+  cu.listId = '';
+  await cuLoadLists(e.target.value);
+  cu.listTasks = [];
+  render();
+});
+
+$('cuListSelect').addEventListener('change', async e => {
+  cu.listId = e.target.value;
+  cuSave();
+  if (cu.listId) await cuCacheListTasks();
+  render();
+});
+
+$('cuToggleBtn').addEventListener('click', () => {
+  const bar = $('cuConfigBar');
+  const collapsed = bar.classList.toggle('collapsed');
+  $('cuToggleBtn').textContent = collapsed ? '▼ ClickUp' : '▲ Hide';
+  localStorage.setItem('kronkup_cu_collapsed', collapsed ? '1' : '0');
+});
+
+$('cuPushAllBtn').addEventListener('click', cuPushAll);
+
+// ════════════════════════════════════════════════════════════════════════════
+// Speech to Text
+// ════════════════════════════════════════════════════════════════════════════
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = $('micBtn');
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = e => {
+    let t = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    $('taskNameInput').value = t;
+  };
+
+  recognition.onend  = () => { isRecording = false; micBtn.classList.remove('recording'); };
+  recognition.onerror = err => {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    if (err.error !== 'no-speech') toast(`Mic error: ${err.error}`);
+  };
+
+  micBtn.addEventListener('click', () => {
+    if (isRecording) {
+      recognition.stop(); isRecording = false; micBtn.classList.remove('recording');
+    } else {
+      try {
+        recognition.start(); isRecording = true; micBtn.classList.add('recording');
+        $('taskNameInput').placeholder = '● Listening…';
+        $('taskNameInput').value = '';
+        setTimeout(() => { $('taskNameInput').placeholder = 'Enter task name or use microphone →'; }, 100);
+      } catch(err) { toast('Could not start microphone'); }
+    }
+  });
+
+  $('micHint').textContent = '— click microphone to toggle speech-to-text recording';
+} else {
+  micBtn.disabled = true;
+  micBtn.style.opacity = '0.3';
+  $('micHint').textContent = '— speech-to-text not supported in this browser (try Chrome)';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Export
+// ════════════════════════════════════════════════════════════════════════════
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportTimestamp() {
+  return new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+}
+
+function csvEsc(val) {
+  const s = (val || '').replace(/"/g, '""');
+  return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s}"` : s;
+}
+
+function exportCSV() {
+  if (!tasks.length) { toast('No tasks to export'); return; }
+  const rows = [['Task Name','Parent Task','Entry','Start Time','End Time','Duration','ClickUp Task','Synced']];
+  tasks.forEach(t => {
+    if (!t.entries.length) {
+      rows.push([csvEsc(t.name), csvEsc(t.group), '', '', '', '', csvEsc(t.clickupTaskName||''), '']);
+    } else {
+      t.entries.forEach((e, i) => {
+        rows.push([
+          csvEsc(t.name), csvEsc(t.group), i + 1,
+          e.startTime ? e.startTime.toLocaleString() : '',
+          e.endTime   ? e.endTime.toLocaleString()   : 'Running',
+          (e.startTime && e.endTime) ? formatDuration(e.endTime - e.startTime) : '',
+          csvEsc(t.clickupTaskName || ''),
+          e.pushedToClickup ? 'Yes' : 'No',
+        ]);
+      });
+    }
+  });
+  downloadFile('﻿' + rows.map(r => r.join(',')).join('\r\n'), `kronk-up-${exportTimestamp()}.csv`, 'text/csv;charset=utf-8');
+  toast('Saved CSV to downloads');
+}
+
+function exportJSON() {
+  if (!tasks.length) { toast('No tasks to export'); return; }
+  const data = tasks.map(t => ({
+    name: t.name, parentTask: t.group,
+    clickupTaskId: t.clickupTaskId || null,
+    clickupTaskName: t.clickupTaskName || null,
+    entries: t.entries.map(e => ({
+      startTime: e.startTime ? e.startTime.toISOString() : null,
+      endTime:   e.endTime   ? e.endTime.toISOString()   : null,
+      duration:  (e.startTime && e.endTime) ? formatDuration(e.endTime - e.startTime) : null,
+      pushedToClickup: e.pushedToClickup || false,
+    })),
+    totalDuration: formatDuration(totalTaskDuration(t)),
+  }));
+  downloadFile(JSON.stringify(data, null, 2), `kronk-up-${exportTimestamp()}.json`, 'application/json');
+  toast('Saved JSON to downloads');
+}
+
+$('exportCsvBtn').addEventListener('click', exportCSV);
+$('exportJsonBtn').addEventListener('click', exportJSON);
+
+// ════════════════════════════════════════════════════════════════════════════
+// Init
+// ════════════════════════════════════════════════════════════════════════════
+cuLoad();
+if (cu.apiKey) {
+  $('cuApiKey').value = cu.apiKey;
+  // Auto-reconnect on load if key was saved
+  cuConnect();
+}
+if (localStorage.getItem('kronkup_cu_collapsed') === '1') {
+  $('cuConfigBar').classList.add('collapsed');
+  $('cuToggleBtn').textContent = '▼ ClickUp';
+}
+
+render();
+</script>
+</body>
+</html>

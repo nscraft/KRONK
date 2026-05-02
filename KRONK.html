@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KRONK — Task Time Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #16181c;
+    --surface2: #1e2128;
+    --border: #2a2d35;
+    --border-bright: #3d4250;
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.12);
+    --accent-glow: rgba(0,229,160,0.25);
+    --danger: #ff4d6a;
+    --danger-dim: rgba(255,77,106,0.12);
+    --warn: #f5a623;
+    --text-primary: #e8eaf0;
+    --text-secondary: #7a8099;
+    --text-muted: #4a5068;
+    --running-pulse: rgba(0,229,160,0.6);
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle scanline texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .logo span {
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+  .header-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  .header-status .active-indicator {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* ── Input Bar ── */
+  .input-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+
+  .input-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .task-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .task-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .task-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn:hover {
+    border-color: var(--border-bright);
+    color: var(--text-primary);
+    background: var(--surface2);
+  }
+
+  .btn-accent {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .btn-accent:hover {
+    background: rgba(0,229,160,0.2);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  .btn-mic {
+    width: 44px;
+    padding: 12px;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .btn-mic.recording {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-dim);
+    animation: mic-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,77,106,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(255,77,106,0); }
+  }
+
+  /* ── Column Headers ── */
+  .table-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 90px;
+    gap: 0;
+    padding: 8px 16px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+
+  /* ── Task Rows ── */
+  .task-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+  }
+
+  .task-block {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+
+  .task-block:last-child {
+    border-bottom: none;
+  }
+
+  .task-block.is-running {
+    background: rgba(0,229,160,0.03);
+    border-left: 2px solid var(--accent);
+  }
+
+  .task-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 90px;
+    gap: 0;
+    align-items: center;
+    min-height: 48px;
+  }
+
+  .task-cell {
+    padding: 10px 16px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  .task-cell:last-child {
+    border-right: none;
+  }
+
+  .cell-input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 100%;
+    outline: none;
+    padding: 2px 4px;
+    transition: background 0.15s;
+    border-radius: 2px;
+  }
+
+  .cell-input:focus {
+    background: var(--surface2);
+    box-shadow: 0 0 0 1px var(--border-bright);
+  }
+
+  .cell-input.task-name-input {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .cell-input.group-input {
+    color: var(--text-secondary);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .parent-dropdown {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    z-index: 500;
+    max-height: 160px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .parent-dropdown-item {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-secondary);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .parent-dropdown-item:hover {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .parent-dropdown-empty {
+    padding: 6px 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Time Entry Rows ── */
+  .time-entries {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .time-entry-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 90px;
+    gap: 0;
+    min-height: 36px;
+    align-items: center;
+    border-top: 1px solid rgba(42,45,53,0.6);
+    background: rgba(0,0,0,0.15);
+  }
+
+  .time-entry-row.is-active-entry {
+    background: rgba(0,229,160,0.04);
+  }
+
+  .te-cell {
+    padding: 8px 16px;
+    border-right: 1px solid rgba(42,45,53,0.5);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .te-cell:last-child { border-right: none; }
+
+  .te-cell.label-cell {
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .time-val {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+
+  .time-val.running {
+    color: var(--accent);
+    animation: flicker 3s ease-in-out infinite;
+  }
+
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    97% { opacity: 0.6; }
+  }
+
+  .duration-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.06em;
+  }
+
+  .duration-val.running {
+    color: var(--accent);
+  }
+
+  /* ── Start/Stop Button ── */
+  .start-stop-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 66px;
+    justify-content: center;
+  }
+
+  .start-stop-btn.start {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.3);
+  }
+
+  .start-stop-btn.start:hover {
+    background: rgba(0,229,160,0.2);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  .start-stop-btn.stop {
+    background: var(--danger-dim);
+    color: var(--danger);
+    border: 1px solid rgba(255,77,106,0.3);
+    animation: stop-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes stop-pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 8px rgba(255,77,106,0.3); }
+  }
+
+  .start-stop-btn.stop:hover {
+    background: rgba(255,77,106,0.2);
+  }
+
+  /* ── Live clock ── */
+  .live-clock {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    font-weight: 400;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    padding: 64px 32px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border);
+  }
+
+  .empty-state .bigtext {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+    color: var(--text-muted);
+  }
+
+  /* ── Delete btn ── */
+  .delete-entry-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    margin-left: 6px;
+    font-family: var(--mono);
+  }
+
+  .time-entry-row:hover .delete-entry-btn {
+    opacity: 1;
+  }
+
+  .delete-entry-btn:hover {
+    color: var(--danger);
+  }
+
+  .delete-task-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    margin-left: 4px;
+  }
+
+  .task-row:hover .delete-task-btn,
+  .task-block:hover .delete-task-btn {
+    opacity: 1;
+  }
+
+  .delete-task-btn:hover {
+    color: var(--danger);
+  }
+
+  /* entry index badge */
+  .entry-badge {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  /* total row */
+  .task-totals {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 90px;
+    border-top: 1px solid var(--border);
+    min-height: 32px;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .tot-cell {
+    padding: 6px 16px;
+    border-right: 1px solid rgba(42,45,53,0.5);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  .tot-cell:last-child { border-right: none; }
+
+  .tot-duration {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.08em;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+  /* Toasts */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+
+  .toast {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    color: var(--text-secondary);
+    animation: toast-in 0.2s ease;
+    max-width: 300px;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .mic-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    margin-top: 6px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .export-btns {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-export {
+    font-size: 10px;
+    padding: 7px 14px;
+    gap: 5px;
+  }
+
+  .time-edit-input {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 2px 5px;
+    width: 86px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    border-radius: 2px;
+    cursor: text;
+  }
+
+  .time-edit-input:hover {
+    border-color: var(--border-bright);
+  }
+
+  .time-edit-input:focus {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  .time-edit-input.invalid {
+    border-color: var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 0 2px var(--danger-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">KRONK</div>
+  <div class="header-right">
+    <div class="export-btns">
+      <button class="btn btn-export" id="exportCsvBtn">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+      <button class="btn btn-export" id="exportJsonBtn">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        JSON
+      </button>
+    </div>
+    <div class="header-status" id="headerStatus">
+      <span class="active-indicator" id="activeIndicator" style="display:none"></span>
+      <span id="statusText">NO ACTIVE TASK</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="section-label">New Task</div>
+  <div class="input-bar">
+    <div class="input-wrap">
+      <input type="text" class="task-input" id="taskNameInput" placeholder="Enter task name or use microphone →" autocomplete="off" />
+    </div>
+    <button class="btn btn-mic" id="micBtn" title="Hold to record task name">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="2" width="6" height="12" rx="3"/>
+        <path d="M19 10a7 7 0 0 1-14 0"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+        <line x1="8" y1="22" x2="16" y2="22"/>
+      </svg>
+    </button>
+    <button class="btn btn-accent" id="addTaskBtn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Task
+    </button>
+  </div>
+  <div class="mic-hint" id="micHint">— microphone: click to toggle recording</div>
+
+  <div style="height:24px"></div>
+  <div class="section-label">Task Log</div>
+
+  <div class="table-header">
+    <div>Task Name</div>
+    <div>Parent Task</div>
+    <div>Start Time</div>
+    <div>End Time</div>
+    <div>Duration</div>
+    <div>Action</div>
+  </div>
+
+  <div class="task-list" id="taskList">
+    <div class="empty-state">
+      <div class="bigtext">No tasks yet</div>
+      Type a task name above and click Add Task
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let tasks = []; // { id, name, group, entries: [{id, startTime, endTime}] }
+  let idCounter = 0;
+  let entryIdCounter = 0;
+  let liveTimerInterval = null;
+  let recognition = null;
+  let isRecording = false;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+
+  function uid() { return ++idCounter; }
+  function euid() { return ++entryIdCounter; }
+
+  function formatTime(date) {
+    if (!date) return '—';
+    return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function formatDuration(ms) {
+    if (ms == null || ms < 0) return '—';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+    if (m > 0) return `${m}m ${String(s).padStart(2,'0')}s`;
+    return `${s}s`;
+  }
+
+  function totalTaskDuration(task) {
+    return task.entries.reduce((sum, e) => {
+      if (e.startTime && e.endTime) return sum + (e.endTime - e.startTime);
+      return sum;
+    }, 0);
+  }
+
+  function getRunningEntry(task) {
+    return task.entries.find(e => e.startTime && !e.endTime);
+  }
+
+  function anyTaskRunning() {
+    return tasks.some(t => getRunningEntry(t));
+  }
+
+  function stopAllRunning(exceptTaskId) {
+    const now = new Date();
+    tasks.forEach(task => {
+      if (task.id === exceptTaskId) return;
+      task.entries.forEach(e => {
+        if (e.startTime && !e.endTime) {
+          e.endTime = now;
+        }
+      });
+    });
+  }
+
+  // ── Toasts ─────────────────────────────────────────────────────────────────
+  function toast(msg, duration = 2500) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    $('toastContainer').appendChild(t);
+    setTimeout(() => t.remove(), duration);
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  function render() {
+    const list = $('taskList');
+
+    // Update header status
+    const runningTask = tasks.find(t => getRunningEntry(t));
+    const indicator = $('activeIndicator');
+    const statusText = $('statusText');
+    if (runningTask) {
+      indicator.style.display = 'inline-block';
+      statusText.textContent = `TRACKING: ${runningTask.name || 'Unnamed'}`;
+    } else {
+      indicator.style.display = 'none';
+      statusText.textContent = 'NO ACTIVE TASK';
+    }
+
+    if (tasks.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="bigtext">No tasks yet</div>Type a task name above and click Add Task</div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    tasks.forEach(task => {
+      const running = getRunningEntry(task);
+      const block = document.createElement('div');
+      block.className = `task-block${running ? ' is-running' : ''}`;
+      block.dataset.taskId = task.id;
+
+      // ── Task main row ──
+      const taskRow = document.createElement('div');
+      taskRow.className = 'task-row';
+      taskRow.innerHTML = `
+        <div class="task-cell">
+          <input class="cell-input task-name-input" type="text" value="${escHtml(task.name)}" placeholder="Task name" data-field="name" data-task-id="${task.id}" />
+          <button class="delete-task-btn" data-delete-task="${task.id}" title="Delete task">✕</button>
+        </div>
+        <div class="task-cell">
+          <input class="cell-input group-input" type="text" value="${escHtml(task.group)}" placeholder="Parent Task" data-field="group" data-task-id="${task.id}" />
+        </div>
+        <div class="task-cell" colspan="3" style="grid-column: span 3; color: var(--text-muted); font-size:10px; letter-spacing:0.1em;">
+          ${task.entries.length} ${task.entries.length === 1 ? 'entry' : 'entries'}
+        </div>
+        <div class="task-cell" style="justify-content:center;">
+          <button class="start-stop-btn ${running ? 'stop' : 'start'}" data-task-id="${task.id}">
+            ${running
+              ? `<svg width="8" height="8" viewBox="0 0 10 10"><rect width="10" height="10" fill="currentColor"/></svg> STOP`
+              : `<svg width="8" height="10" viewBox="0 0 8 10"><polygon points="0,0 8,5 0,10" fill="currentColor"/></svg> START`
+            }
+          </button>
+        </div>
+      `;
+      block.appendChild(taskRow);
+
+      // ── Time entries ──
+      if (task.entries.length > 0) {
+        const entriesDiv = document.createElement('div');
+        entriesDiv.className = 'time-entries';
+        task.entries.forEach((entry, idx) => {
+          const isActive = entry.startTime && !entry.endTime;
+          const dur = (entry.startTime && entry.endTime)
+            ? formatDuration(entry.endTime - entry.startTime)
+            : null;
+          const row = document.createElement('div');
+          row.className = `time-entry-row${isActive ? ' is-active-entry' : ''}`;
+          row.dataset.entryId = entry.id;
+          row.innerHTML = `
+            <div class="te-cell label-cell" style="padding-left:28px;">
+              <span class="entry-badge">#${idx + 1}</span>
+            </div>
+            <div class="te-cell" style="color:var(--text-muted); font-size:10px;"></div>
+            <div class="te-cell">
+              ${isActive
+                ? `<span class="time-val">${formatTime(entry.startTime)}</span>`
+                : `<input class="time-edit-input" type="text" value="${formatTime(entry.startTime)}" title="Edit start time (HH:MM:SS)" data-time-field="startTime" data-task-id="${task.id}" data-entry-id="${entry.id}" />`
+              }
+            </div>
+            <div class="te-cell">
+              ${isActive
+                ? `<span class="time-val running">RUNNING</span>`
+                : `<input class="time-edit-input" type="text" value="${formatTime(entry.endTime)}" title="Edit end time (HH:MM:SS)" data-time-field="endTime" data-task-id="${task.id}" data-entry-id="${entry.id}" />`
+              }
+            </div>
+            <div class="te-cell">
+              ${isActive
+                ? `<span class="duration-val running" data-live="${task.id}-${entry.id}">—</span>`
+                : `<span class="duration-val">${dur !== null ? dur : '—'}</span>`}
+            </div>
+            <div class="te-cell" style="justify-content:center;">
+              <button class="delete-entry-btn" data-delete-entry="${entry.id}" data-task-id="${task.id}" title="Delete entry">✕</button>
+            </div>
+          `;
+          entriesDiv.appendChild(row);
+        });
+
+        // totals row
+        const totalMs = totalTaskDuration(task);
+        const totRow = document.createElement('div');
+        totRow.className = 'task-totals';
+        totRow.innerHTML = `
+          <div class="tot-cell" style="padding-left:28px; letter-spacing:0.12em; font-size:9px; color:var(--text-muted);">TOTAL</div>
+          <div class="tot-cell"></div>
+          <div class="tot-cell"></div>
+          <div class="tot-cell"></div>
+          <div class="tot-cell"><span class="tot-duration">${totalMs > 0 ? formatDuration(totalMs) : '—'}</span></div>
+          <div class="tot-cell"></div>
+        `;
+        entriesDiv.appendChild(totRow);
+        block.appendChild(entriesDiv);
+      }
+
+      list.appendChild(block);
+    });
+
+    // start live timer
+    startLiveTimer();
+  }
+
+  function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Live Duration Timer ────────────────────────────────────────────────────
+  function startLiveTimer() {
+    if (liveTimerInterval) clearInterval(liveTimerInterval);
+    liveTimerInterval = setInterval(() => {
+      const liveCells = document.querySelectorAll('[data-live]');
+      if (liveCells.length === 0) return;
+      const now = new Date();
+      liveCells.forEach(cell => {
+        const [taskId, entryId] = cell.dataset.live.split('-').map(Number);
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        const entry = task.entries.find(e => e.id === entryId);
+        if (!entry || !entry.startTime) return;
+        cell.textContent = formatDuration(now - entry.startTime);
+      });
+    }, 1000);
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  function addTask(name) {
+    if (!name.trim()) { toast('Please enter a task name'); return; }
+    tasks.push({ id: uid(), name: name.trim(), group: '', entries: [] });
+    render();
+    $('taskNameInput').value = '';
+  }
+
+  function startTask(taskId) {
+    stopAllRunning(taskId);
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    task.entries.push({ id: euid(), startTime: new Date(), endTime: null });
+    render();
+    toast(`Started: ${task.name || 'task'}`);
+  }
+
+  function stopTask(taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const entry = getRunningEntry(task);
+    if (entry) {
+      entry.endTime = new Date();
+      toast(`Stopped: ${task.name || 'task'} — ${formatDuration(entry.endTime - entry.startTime)}`);
+    }
+    render();
+  }
+
+  function deleteTask(taskId) {
+    tasks = tasks.filter(t => t.id !== taskId);
+    render();
+  }
+
+  function deleteEntry(taskId, entryId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    task.entries = task.entries.filter(e => e.id !== entryId);
+    render();
+  }
+
+  // ── Event Delegation ───────────────────────────────────────────────────────
+  $('taskList').addEventListener('click', e => {
+    // Start/Stop
+    const ssBtn = e.target.closest('.start-stop-btn');
+    if (ssBtn) {
+      const taskId = Number(ssBtn.dataset.taskId);
+      if (ssBtn.classList.contains('start')) startTask(taskId);
+      else stopTask(taskId);
+      return;
+    }
+    // Delete task
+    const delTask = e.target.closest('[data-delete-task]');
+    if (delTask) {
+      const taskId = Number(delTask.dataset.deleteTask);
+      deleteTask(taskId);
+      return;
+    }
+    // Delete entry
+    const delEntry = e.target.closest('[data-delete-entry]');
+    if (delEntry) {
+      const entryId = Number(delEntry.dataset.deleteEntry);
+      const taskId = Number(delEntry.dataset.taskId);
+      deleteEntry(taskId, entryId);
+      return;
+    }
+  });
+
+  // Inline edit task fields
+  $('taskList').addEventListener('change', e => {
+    const input = e.target.closest('[data-field]');
+    if (!input) return;
+    const taskId = Number(input.dataset.taskId);
+    const field = input.dataset.field;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    task[field] = input.value;
+    // Only re-render for name (to update header), not on every keystroke
+    if (field === 'name') {
+      const runningTask = tasks.find(t => getRunningEntry(t));
+      if (runningTask && runningTask.id === taskId) render();
+    }
+  });
+
+  // Inline edit time entry fields
+  $('taskList').addEventListener('change', e => {
+    const input = e.target.closest('[data-time-field]');
+    if (!input) return;
+    const taskId = Number(input.dataset.taskId);
+    const entryId = Number(input.dataset.entryId);
+    const field = input.dataset.timeField;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const entry = task.entries.find(en => en.id === entryId);
+    if (!entry) return;
+
+    const parsed = parseTimeEdit(input.value, entry[field]);
+    if (!parsed) {
+      input.classList.add('invalid');
+      toast('Invalid time — use HH:MM:SS');
+      input.value = formatTime(entry[field]);
+      setTimeout(() => input.classList.remove('invalid'), 1500);
+      return;
+    }
+
+    if (field === 'startTime' && entry.endTime && parsed >= entry.endTime) {
+      input.classList.add('invalid');
+      toast('Start time must be before end time');
+      input.value = formatTime(entry.startTime);
+      setTimeout(() => input.classList.remove('invalid'), 1500);
+      return;
+    }
+
+    if (field === 'endTime' && parsed <= entry.startTime) {
+      input.classList.add('invalid');
+      toast('End time must be after start time');
+      input.value = formatTime(entry.endTime);
+      setTimeout(() => input.classList.remove('invalid'), 1500);
+      return;
+    }
+
+    entry[field] = parsed;
+    render();
+  });
+
+  function parseTimeEdit(value, baseDate) {
+    const match = value.trim().match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+    if (!match) return null;
+    const h = Number(match[1]), m = Number(match[2]), s = Number(match[3]);
+    if (h > 23 || m > 59 || s > 59) return null;
+    const d = new Date(baseDate);
+    d.setHours(h, m, s, 0);
+    return d;
+  }
+
+  // ── Add Task Button ────────────────────────────────────────────────────────
+  $('addTaskBtn').addEventListener('click', () => {
+    addTask($('taskNameInput').value);
+  });
+
+  $('taskNameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTask($('taskNameInput').value);
+  });
+
+  // ── Speech to Text ─────────────────────────────────────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micBtn = $('micBtn');
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = e => {
+      let transcript = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      $('taskNameInput').value = transcript;
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+    };
+
+    recognition.onerror = err => {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      if (err.error !== 'no-speech') toast(`Mic error: ${err.error}`);
+    };
+
+    micBtn.addEventListener('click', () => {
+      if (isRecording) {
+        recognition.stop();
+        isRecording = false;
+        micBtn.classList.remove('recording');
+      } else {
+        try {
+          recognition.start();
+          isRecording = true;
+          micBtn.classList.add('recording');
+          $('taskNameInput').placeholder = '● Listening…';
+          $('taskNameInput').value = '';
+          setTimeout(() => {
+            $('taskNameInput').placeholder = 'Enter task name or use microphone →';
+          }, 100);
+        } catch(err) {
+          toast('Could not start microphone');
+        }
+      }
+    });
+
+    $('micHint').textContent = '— click microphone to toggle speech-to-text recording';
+  } else {
+    micBtn.disabled = true;
+    micBtn.title = 'Speech recognition not supported in this browser';
+    micBtn.style.opacity = '0.3';
+    $('micHint').textContent = '— speech-to-text not supported in this browser (try Chrome)';
+  }
+
+  // ── Parent Task Dropdown ───────────────────────────────────────────────────
+  const parentDL = document.createElement('div');
+  parentDL.className = 'parent-dropdown';
+  document.body.appendChild(parentDL);
+
+  let activeGroupInput = null;
+
+  function getParentSuggestions(query) {
+    const seen = new Set();
+    const opts = [];
+    tasks.forEach(t => {
+      if (t.name && !seen.has(t.name)) { seen.add(t.name); opts.push(t.name); }
+      if (t.group && !seen.has(t.group)) { seen.add(t.group); opts.push(t.group); }
+    });
+    opts.sort((a, b) => a.localeCompare(b));
+    if (!query) return opts;
+    const q = query.toLowerCase();
+    return opts.filter(o => o.toLowerCase().includes(q));
+  }
+
+  function renderParentDropdown(query) {
+    const items = getParentSuggestions(query);
+    if (items.length === 0) {
+      parentDL.innerHTML = `<div class="parent-dropdown-empty">No suggestions</div>`;
+    } else {
+      parentDL.innerHTML = items.map(o =>
+        `<div class="parent-dropdown-item" data-value="${escHtml(o)}">${escHtml(o)}</div>`
+      ).join('');
+    }
+  }
+
+  function positionParentDropdown(input) {
+    const rect = input.getBoundingClientRect();
+    parentDL.style.top = (rect.bottom + 2) + 'px';
+    parentDL.style.left = rect.left + 'px';
+    parentDL.style.minWidth = Math.max(rect.width, 180) + 'px';
+  }
+
+  document.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('group-input')) {
+      activeGroupInput = e.target;
+      renderParentDropdown('');
+      positionParentDropdown(e.target);
+      parentDL.style.display = 'block';
+      return;
+    }
+    if (parentDL.contains(e.target)) return;
+    parentDL.style.display = 'none';
+    activeGroupInput = null;
+  });
+
+  document.addEventListener('input', e => {
+    if (!e.target.classList.contains('group-input') || activeGroupInput !== e.target) return;
+    renderParentDropdown(e.target.value);
+    positionParentDropdown(e.target);
+  });
+
+  parentDL.addEventListener('mousedown', e => {
+    const item = e.target.closest('.parent-dropdown-item');
+    if (!item || !activeGroupInput) return;
+    e.preventDefault();
+    activeGroupInput.value = item.dataset.value;
+    activeGroupInput.dispatchEvent(new Event('change', { bubbles: true }));
+    parentDL.style.display = 'none';
+    activeGroupInput = null;
+  });
+
+  // ── Export ─────────────────────────────────────────────────────────────────
+  function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportTimestamp() {
+    return new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  }
+
+  function csvEsc(val) {
+    const s = (val || '').replace(/"/g, '""');
+    return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s}"` : s;
+  }
+
+  function exportCSV() {
+    if (tasks.length === 0) { toast('No tasks to export'); return; }
+    const rows = [['Task Name', 'Parent Task', 'Entry', 'Start Time', 'End Time', 'Duration']];
+    tasks.forEach(t => {
+      if (t.entries.length === 0) {
+        rows.push([csvEsc(t.name), csvEsc(t.group), '', '', '', '']);
+      } else {
+        t.entries.forEach((e, i) => {
+          rows.push([
+            csvEsc(t.name),
+            csvEsc(t.group),
+            i + 1,
+            e.startTime ? e.startTime.toLocaleString() : '',
+            e.endTime ? e.endTime.toLocaleString() : 'Running',
+            (e.startTime && e.endTime) ? formatDuration(e.endTime - e.startTime) : ''
+          ]);
+        });
+      }
+    });
+    const csv = '﻿' + rows.map(r => r.join(',')).join('\r\n');
+    downloadFile(csv, `chronolog-${exportTimestamp()}.csv`, 'text/csv;charset=utf-8');
+    toast('Saved CSV to downloads');
+  }
+
+  function exportJSON() {
+    if (tasks.length === 0) { toast('No tasks to export'); return; }
+    const data = tasks.map(t => ({
+      name: t.name,
+      parentTask: t.group,
+      entries: t.entries.map(e => ({
+        startTime: e.startTime ? e.startTime.toISOString() : null,
+        endTime: e.endTime ? e.endTime.toISOString() : null,
+        duration: (e.startTime && e.endTime) ? formatDuration(e.endTime - e.startTime) : null
+      })),
+      totalDuration: formatDuration(totalTaskDuration(t))
+    }));
+    downloadFile(JSON.stringify(data, null, 2), `chronolog-${exportTimestamp()}.json`, 'application/json');
+    toast('Saved JSON to downloads');
+  }
+
+  $('exportCsvBtn').addEventListener('click', exportCSV);
+  $('exportJsonBtn').addEventListener('click', exportJSON);
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  render();
+</script>
+</body>
+</html>
