@@ -533,6 +533,22 @@
     letter-spacing: 0.08em;
   }
 
+  .btn-stop-active {
+    font-size: 10px;
+    padding: 7px 14px;
+    gap: 5px;
+    border-color: rgba(255,77,106,0.4);
+    color: var(--danger);
+    background: var(--danger-dim);
+    animation: stop-pulse 2s ease-in-out infinite;
+  }
+
+  .btn-stop-active:hover {
+    background: rgba(255,77,106,0.2);
+    box-shadow: 0 0 10px rgba(255,77,106,0.3);
+    border-color: var(--danger);
+  }
+
   /* scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -636,6 +652,10 @@
 <header>
   <div class="logo">KRONK</div>
   <div class="header-right">
+    <button class="btn btn-export btn-stop-active" id="stopActiveBtn" style="display:none">
+      <svg width="8" height="8" viewBox="0 0 10 10"><rect width="10" height="10" fill="currentColor"/></svg>
+      STOP
+    </button>
     <div class="export-btns">
       <button class="btn btn-export" id="exportCsvBtn">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -754,6 +774,44 @@
     });
   }
 
+  // ── Task persistence ───────────────────────────────────────────────────────
+  let persistenceDisabled = false;
+  let hasWarnedAboutPersistence = false;
+
+  function saveTasks() {
+    if (persistenceDisabled) return;
+
+    try {
+      localStorage.setItem('kronk_tasks', JSON.stringify(tasks));
+    } catch (e) {
+      persistenceDisabled = true;
+
+      if (!hasWarnedAboutPersistence) {
+        hasWarnedAboutPersistence = true;
+        console.warn('KRONK could not save tasks to localStorage; persistence has been disabled for this session.', e);
+      }
+    }
+  }
+
+  function loadTasks() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('kronk_tasks') || '[]');
+      tasks = saved.map(t => ({
+        ...t,
+        entries: (t.entries || []).map(e => ({
+          ...e,
+          startTime: e.startTime ? new Date(e.startTime) : null,
+          endTime:   e.endTime   ? new Date(e.endTime)   : null,
+        })),
+      }));
+      idCounter      = tasks.reduce((max, t) => Math.max(max, t.id || 0), 0);
+      entryIdCounter = tasks.reduce((max, t) =>
+        t.entries.reduce((m, e) => Math.max(m, e.id || 0), max), 0);
+    } catch(e) {
+      tasks = [];
+    }
+  }
+
   // ── Toasts ─────────────────────────────────────────────────────────────────
   function toast(msg, duration = 2500) {
     const t = document.createElement('div');
@@ -765,6 +823,7 @@
 
   // ── Render ─────────────────────────────────────────────────────────────────
   function render() {
+    saveTasks();
     const list = $('taskList');
 
     // Update header status
@@ -778,6 +837,9 @@
       indicator.style.display = 'none';
       statusText.textContent = 'NO ACTIVE TASK';
     }
+    const stopActiveBtn = $('stopActiveBtn');
+    stopActiveBtn.style.display = runningTask ? 'flex' : 'none';
+    if (runningTask) stopActiveBtn.dataset.taskId = runningTask.id;
 
     if (tasks.length === 0) {
       list.innerHTML = `<div class="empty-state"><div class="bigtext">No tasks yet</div>Type a task name above and click Add Task</div>`;
@@ -1067,6 +1129,8 @@
     recognition.onend = () => {
       isRecording = false;
       micBtn.classList.remove('recording');
+      const name = $('taskNameInput').value.trim();
+      if (name) addTask(name);
     };
 
     recognition.onerror = err => {
@@ -1233,8 +1297,18 @@
 
   $('exportCsvBtn').addEventListener('click', exportCSV);
   $('exportJsonBtn').addEventListener('click', exportJSON);
+  $('stopActiveBtn').addEventListener('click', () => stopTask(Number($('stopActiveBtn').dataset.taskId)));
+
+  // ── Auto-stop on page hide ─────────────────────────────────────────────────
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    stopAllRunning();
+    render();
+  });
 
   // ── Init ───────────────────────────────────────────────────────────────────
+  loadTasks();
+  $('taskNameInput').focus();
   render();
 </script>
 </body>

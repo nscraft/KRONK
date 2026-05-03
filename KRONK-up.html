@@ -974,6 +974,22 @@
     margin-bottom: 12px;
   }
 
+  .btn-stop-active {
+    font-size: 10px;
+    padding: 7px 14px;
+    gap: 5px;
+    border-color: rgba(255,77,106,0.4);
+    color: var(--danger);
+    background: var(--danger-dim);
+    animation: stop-pulse 2s ease-in-out infinite;
+  }
+
+  .btn-stop-active:hover {
+    background: rgba(255,77,106,0.2);
+    box-shadow: 0 0 10px rgba(255,77,106,0.3);
+    border-color: var(--danger);
+  }
+
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border-bright); }
@@ -985,6 +1001,10 @@
 <header>
   <div class="logo">KRONK<span class="logo-up">-UP</span></div>
   <div class="header-right">
+    <button class="btn btn-export btn-stop-active" id="stopActiveBtn" style="display:none">
+      <svg width="8" height="8" viewBox="0 0 10 10"><rect width="10" height="10" fill="currentColor"/></svg>
+      STOP
+    </button>
     <div class="export-btns">
       <button class="btn btn-export" id="exportCsvBtn">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1116,6 +1136,32 @@ const $ = id => document.getElementById(id);
 
 function uid()  { return ++idCounter; }
 function euid() { return ++entryIdCounter; }
+
+// ════════════════════════════════════════════════════════════════════════════
+// Task persistence
+// ════════════════════════════════════════════════════════════════════════════
+function saveTasks() {
+  localStorage.setItem('kronkup_tasks', JSON.stringify(tasks));
+}
+
+function loadTasks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kronkup_tasks') || '[]');
+    tasks = saved.map(t => ({
+      ...t,
+      entries: (t.entries || []).map(e => ({
+        ...e,
+        startTime: e.startTime ? new Date(e.startTime) : null,
+        endTime:   e.endTime   ? new Date(e.endTime)   : null,
+      })),
+    }));
+    idCounter      = tasks.reduce((max, t) => Math.max(max, t.id || 0), 0);
+    entryIdCounter = tasks.reduce((max, t) =>
+      t.entries.reduce((m, e) => Math.max(m, e.id || 0), max), 0);
+  } catch(e) {
+    tasks = [];
+  }
+}
 
 function formatTime(date) {
   if (!date) return '—';
@@ -1539,12 +1585,16 @@ function renderCuEntryCell(entry) {
 // Render
 // ════════════════════════════════════════════════════════════════════════════
 function render() {
+  saveTasks();
   const list = $('taskList');
 
   // Header status
   const runningTask = tasks.find(t => getRunningEntry(t));
   $('activeIndicator').style.display = runningTask ? 'inline-block' : 'none';
   $('statusText').textContent = runningTask ? `TRACKING: ${runningTask.name || 'Unnamed'}` : 'NO ACTIVE TASK';
+  const stopActiveBtn = $('stopActiveBtn');
+  stopActiveBtn.style.display = runningTask ? 'flex' : 'none';
+  if (runningTask) stopActiveBtn.dataset.taskId = runningTask.id;
 
   // Push All button visibility
   const hasLinked = tasks.some(t => t.clickupTaskId);
@@ -2090,6 +2140,7 @@ $('cuListSelect').addEventListener('change', async e => {
 });
 
 $('cuPushAllBtn').addEventListener('click', cuPushAll);
+$('stopActiveBtn').addEventListener('click', () => stopTask(Number($('stopActiveBtn').dataset.taskId)));
 
 // ════════════════════════════════════════════════════════════════════════════
 // Speech to Text
@@ -2109,7 +2160,12 @@ if (SpeechRecognition) {
     $('taskNameInput').value = t;
   };
 
-  recognition.onend  = () => { isRecording = false; micBtn.classList.remove('recording'); };
+  recognition.onend = () => {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    const name = $('taskNameInput').value.trim();
+    if (name) addTask(name);
+  };
   recognition.onerror = err => {
     isRecording = false;
     micBtn.classList.remove('recording');
@@ -2201,14 +2257,25 @@ $('exportCsvBtn').addEventListener('click', exportCSV);
 $('exportJsonBtn').addEventListener('click', exportJSON);
 
 // ════════════════════════════════════════════════════════════════════════════
+// Auto-stop on page hide
+// ════════════════════════════════════════════════════════════════════════════
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  stopAllRunning();
+  render();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // Init
 // ════════════════════════════════════════════════════════════════════════════
 cuLoad();
+loadTasks();
 if (cu.apiKey) {
   $('cuApiKey').value = cu.apiKey;
   // Auto-reconnect on load if key was saved
   cuConnect();
 }
+$('taskNameInput').focus();
 render();
 </script>
 </body>
