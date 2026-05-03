@@ -775,8 +775,22 @@
   }
 
   // ── Task persistence ───────────────────────────────────────────────────────
+  let persistenceDisabled = false;
+  let hasWarnedAboutPersistence = false;
+
   function saveTasks() {
-    localStorage.setItem('kronk_tasks', JSON.stringify(tasks));
+    if (persistenceDisabled) return;
+
+    try {
+      localStorage.setItem('kronk_tasks', JSON.stringify(tasks));
+    } catch (e) {
+      persistenceDisabled = true;
+
+      if (!hasWarnedAboutPersistence) {
+        hasWarnedAboutPersistence = true;
+        console.warn('KRONK could not save tasks to localStorage; persistence has been disabled for this session.', e);
+      }
+    }
   }
 
   function loadTasks() {
