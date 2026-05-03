@@ -905,9 +905,10 @@
   // ── Actions ────────────────────────────────────────────────────────────────
   function addTask(name) {
     if (!name.trim()) { toast('Please enter a task name'); return; }
-    tasks.push({ id: uid(), name: name.trim(), group: '', entries: [] });
-    render();
+    const newTask = { id: uid(), name: name.trim(), group: '', entries: [] };
+    tasks.push(newTask);
     $('taskNameInput').value = '';
+    startTask(newTask.id);
   }
 
   function startTask(taskId) {

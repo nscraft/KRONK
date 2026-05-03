@@ -1684,13 +1684,14 @@ function startLiveTimer() {
 // ════════════════════════════════════════════════════════════════════════════
 function addTask(name) {
   if (!name.trim()) { toast('Please enter a task name'); return; }
-  tasks.push({
+  const newTask = {
     id: uid(), name: name.trim(), group: '', entries: [],
     clickupTaskId: null, clickupTaskName: '',
     parentCuTaskId: null, parentCuTaskName: '',
-  });
-  render();
+  };
+  tasks.push(newTask);
   $('taskNameInput').value = '';
+  startTask(newTask.id);
 }
 
 function startTask(taskId) {
