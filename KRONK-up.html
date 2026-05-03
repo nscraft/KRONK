@@ -2257,12 +2257,11 @@ $('exportCsvBtn').addEventListener('click', exportCSV);
 $('exportJsonBtn').addEventListener('click', exportJSON);
 
 // ════════════════════════════════════════════════════════════════════════════
-// Auto-stop on page hide
+// Auto-stop on tab close
 // ════════════════════════════════════════════════════════════════════════════
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) return;
+window.addEventListener('beforeunload', () => {
   stopAllRunning();
-  render();
+  saveTasks();
 });
 
 // ════════════════════════════════════════════════════════════════════════════

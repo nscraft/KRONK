@@ -1299,11 +1299,10 @@
   $('exportJsonBtn').addEventListener('click', exportJSON);
   $('stopActiveBtn').addEventListener('click', () => stopTask(Number($('stopActiveBtn').dataset.taskId)));
 
-  // ── Auto-stop on page hide ─────────────────────────────────────────────────
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) return;
+  // ── Auto-stop on tab close ─────────────────────────────────────────────────
+  window.addEventListener('beforeunload', () => {
     stopAllRunning();
-    render();
+    saveTasks();
   });
 
   // ── Init ───────────────────────────────────────────────────────────────────

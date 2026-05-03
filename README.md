@@ -19,7 +19,7 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 - **Inline time editing** — click any Start or End time on a completed entry to correct it
 - **Parent Task suggestions** — dropdown auto-populates from existing task and parent names; free-text also accepted
 - **Live duration counter** — running entries tick in real time
-- **Auto-stop on tab hide** — if you switch away or close the tab, any running timer is stopped and saved automatically
+- **Auto-stop on tab close** — if you close the tab, any running timer is stopped and saved automatically; minimizing or switching windows keeps the timer running
 - **Export** — download all data as CSV or JSON to your local Downloads folder
 - **Speech-to-text** — click the microphone to dictate a task name; the task is created and timed automatically when you finish speaking (Chrome)
 - **Persistent data** — tasks, entries, and times are saved to `localStorage` and restored on next open
