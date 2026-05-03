@@ -117,13 +117,6 @@
     position: sticky;
     top: 57px;
     z-index: 99;
-    overflow: hidden;
-    transition: max-height 0.25s ease;
-    max-height: 64px;
-  }
-
-  .cu-config-bar.collapsed {
-    max-height: 36px;
   }
 
   .cu-config-inner {
@@ -133,11 +126,6 @@
     padding: 10px 32px;
     flex-wrap: nowrap;
     min-height: 54px;
-  }
-
-  .cu-config-bar.collapsed .cu-config-inner {
-    min-height: 36px;
-    padding: 6px 32px;
   }
 
   .cu-config-section {
@@ -196,14 +184,6 @@
     width: 1px;
     height: 24px;
     background: var(--border);
-    flex-shrink: 0;
-  }
-
-  .cu-config-actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
     flex-shrink: 0;
   }
 
@@ -309,24 +289,6 @@
   .cu-connect-btn:hover {
     background: rgba(124,58,237,0.2);
     box-shadow: 0 0 8px var(--cu-glow);
-  }
-
-  .cu-toggle-btn {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    font-family: var(--mono);
-    font-size: 10px;
-    padding: 4px 10px;
-    cursor: pointer;
-    letter-spacing: 0.1em;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-
-  .cu-toggle-btn:hover {
-    border-color: var(--border-bright);
-    color: var(--text-secondary);
   }
 
   /* ── ClickUp status badge ── */
@@ -463,39 +425,85 @@
     letter-spacing: 0.05em;
   }
 
-  /* ── Parent Task Dropdown ── */
-  .parent-dropdown {
-    position: fixed;
-    background: var(--surface2);
-    border: 1px solid var(--border-bright);
-    z-index: 500;
-    max-height: 160px;
-    overflow-y: auto;
-    display: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  /* ── Parent Task Picker ── */
+  .cu-parent-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-transform: uppercase;
+    transition: all 0.15s;
   }
 
-  .parent-dropdown-item {
-    padding: 6px 12px;
+  .cu-parent-btn:hover { border-color: var(--cu-border); color: var(--cu); }
+
+  .cu-parent-set-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cu-parent-set-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--cu-dim);
+    border: 1px solid var(--cu-border);
+    color: var(--cu);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+    transition: all 0.15s;
+  }
+
+  .cu-parent-set-btn:hover { background: rgba(124,58,237,0.2); }
+
+  .cu-parent-clear-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 3px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .cu-parent-clear-btn:hover { color: var(--danger); }
+
+  .cu-parent-pick-item {
+    padding: 7px 12px;
     font-size: 11px;
     font-family: var(--mono);
     color: var(--text-secondary);
     cursor: pointer;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid rgba(42,45,53,0.4);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .parent-dropdown-item:hover {
-    background: var(--accent-dim);
-    color: var(--accent);
-  }
-
-  .parent-dropdown-empty {
-    padding: 6px 12px;
-    font-size: 10px;
-    color: var(--text-muted);
-    letter-spacing: 0.08em;
-  }
+  .cu-parent-pick-item:last-child { border-bottom: none; }
+  .cu-parent-pick-item:hover { background: var(--cu-dim); color: var(--cu); }
 
   /* ── Time Entry Rows ── */
   .time-entries { display: flex; flex-direction: column; }
@@ -875,6 +883,20 @@
 
   .cu-link-create:hover { background: var(--cu-dim); }
 
+  /* Scope banner shown in link dropdown when a parent task is active */
+  .cu-link-scope-note {
+    padding: 6px 12px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cu);
+    background: var(--cu-dim);
+    border-bottom: 1px solid var(--cu-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .cu-link-empty {
     padding: 10px 12px;
     font-size: 10px;
@@ -1008,9 +1030,6 @@
       </select>
     </div>
 
-    <div class="cu-config-actions">
-      <button class="cu-toggle-btn" id="cuToggleBtn">▲ Hide</button>
-    </div>
 
   </div>
 </div>
@@ -1065,6 +1084,16 @@
   </div>
   <div class="cu-link-results" id="cuLinkResults">
     <div class="cu-link-loading">Loading tasks…</div>
+  </div>
+</div>
+
+<!-- ── Parent Task Picker Dropdown ── -->
+<div class="cu-link-dropdown" id="cuParentPickerDropdown">
+  <div class="cu-link-search">
+    <input type="text" class="cu-link-search-input" id="cuParentPickerSearch" placeholder="Search tasks to use as parent…" autocomplete="off" />
+  </div>
+  <div class="cu-link-results" id="cuParentPickerResults">
+    <div class="cu-link-loading">Loading…</div>
   </div>
 </div>
 
@@ -1304,13 +1333,27 @@ async function cuLoadLists(spaceId, restoreSaved = false) {
 async function cuCacheListTasks() {
   if (!cu.listId) { cu.listTasks = []; return; }
   try {
-    // ClickUp paginates at 100; page 0 is usually sufficient for linking
+    // subtasks=true returns subtasks nested inside parent.subtasks[] — we flatten them
     const data = await cuApi(`/list/${cu.listId}/task?archived=false&page=0&subtasks=true`);
-    cu.listTasks = data.tasks || [];
+    cu.listTasks = _flattenTasks(data.tasks || []);
   } catch(e) {
     cu.listTasks = [];
     toast('Could not load task list from ClickUp');
   }
+}
+
+// Recursively flatten a ClickUp task list so subtasks appear alongside top-level tasks.
+// Each subtask retains its `parent` field (a string task ID) for filtering.
+function _flattenTasks(taskList) {
+  const result = [];
+  function walk(list) {
+    for (const t of list) {
+      result.push(t);
+      if (Array.isArray(t.subtasks) && t.subtasks.length) walk(t.subtasks);
+    }
+  }
+  walk(taskList || []);
+  return result;
 }
 
 // ── Link / Unlink ────────────────────────────────────────────────────────────
@@ -1337,16 +1380,64 @@ async function cuCreateAndLink(kronikId) {
   const task = tasks.find(t => t.id === kronikId);
   if (!task) return;
   hideLinkDropdown();
+  if (task.parentCuTaskId) {
+    await _cuCreateSubtask(kronikId, task, task.parentCuTaskId, task.parentCuTaskName || 'parent');
+  } else {
+    await _cuCreateStandalone(kronikId, task);
+  }
+}
+
+async function _cuCreateStandalone(kronikId, task) {
   try {
     const data = await cuApi(`/list/${cu.listId}/task`, {
       method: 'POST',
       body: JSON.stringify({ name: task.name }),
     });
-    // Add to cache
     cu.listTasks.push(data);
     cuLinkTask(kronikId, data.id, data.name);
   } catch(e) {
-    toast('Failed to create ClickUp task');
+    toast(`Failed to create ClickUp task: ${_cuErrMsg(e)}`);
+  }
+}
+
+// Two-step subtask creation: create task first, then PUT to set parent relationship.
+// POST /list/{id}/task with `parent` in body can silently succeed without establishing
+// the relationship; PUT /task/{id} is the documented convert-to-subtask call.
+async function _cuCreateSubtask(kronikId, task, parentId, parentDisplayName) {
+  let created;
+  try {
+    created = await cuApi(`/list/${cu.listId}/task`, {
+      method: 'POST',
+      body: JSON.stringify({ name: task.name }),
+    });
+  } catch(e) {
+    toast(`Failed to create ClickUp task: ${_cuErrMsg(e)}`);
+    return;
+  }
+  cu.listTasks.push(created);
+  try {
+    await cuApi(`/task/${created.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ parent: parentId }),
+    });
+    cuLinkTask(kronikId, created.id, created.name);
+    toast(`Created subtask under "${parentDisplayName}"`, 'cu-toast');
+  } catch(e) {
+    cuLinkTask(kronikId, created.id, created.name);
+    toast(`Linked as standalone — could not nest under "${parentDisplayName}": ${_cuErrMsg(e)}`, 'warn', 5000);
+  }
+}
+
+function _cuErrMsg(e) {
+  if (!e || !e.message) return 'unknown error';
+  const m = e.message.match(/^ClickUp (\d+): (.*)$/s);
+  if (!m) return e.message.slice(0, 80);
+  const status = m[1];
+  try {
+    const body = JSON.parse(m[2]);
+    return `${status} — ${body.err || body.error || body.message || m[2].slice(0, 60)}`;
+  } catch(_) {
+    return `${status} — ${m[2].slice(0, 60)}`;
   }
 }
 
@@ -1479,8 +1570,8 @@ function render() {
         <input class="cell-input task-name-input" type="text" value="${escHtml(task.name)}" placeholder="Task name" data-field="name" data-task-id="${task.id}" />
         <button class="delete-task-btn" data-delete-task="${task.id}" title="Delete task">✕</button>
       </div>
-      <div class="task-cell">
-        <input class="cell-input group-input" type="text" value="${escHtml(task.group)}" placeholder="Parent Task" data-field="group" data-task-id="${task.id}" />
+      <div class="task-cell" style="padding: 8px 12px;">
+        ${renderParentTaskCell(task)}
       </div>
       <div class="task-cell" style="grid-column: span 3; color: var(--text-muted); font-size:10px; letter-spacing:0.1em;">
         ${task.entries.length} ${task.entries.length === 1 ? 'entry' : 'entries'}
@@ -1596,6 +1687,7 @@ function addTask(name) {
   tasks.push({
     id: uid(), name: name.trim(), group: '', entries: [],
     clickupTaskId: null, clickupTaskName: '',
+    parentCuTaskId: null, parentCuTaskName: '',
   });
   render();
   $('taskNameInput').value = '';
@@ -1648,6 +1740,13 @@ $('taskList').addEventListener('click', e => {
 
   const delEntry = e.target.closest('[data-delete-entry]');
   if (delEntry) { deleteEntry(Number(delEntry.dataset.taskId), Number(delEntry.dataset.deleteEntry)); return; }
+
+  // Parent task picker
+  const parentPick = e.target.closest('[data-cu-parent-pick]');
+  if (parentPick) { showParentPicker(Number(parentPick.dataset.cuParentPick), parentPick); return; }
+
+  const parentClear = e.target.closest('[data-cu-parent-clear]');
+  if (parentClear) { clearParentTask(Number(parentClear.dataset.cuParentClear)); return; }
 
   // ClickUp: link button
   const cuLink = e.target.closest('[data-cu-link]');
@@ -1735,72 +1834,148 @@ $('addTaskBtn').addEventListener('click', () => addTask($('taskNameInput').value
 $('taskNameInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask($('taskNameInput').value); });
 
 // ════════════════════════════════════════════════════════════════════════════
-// Parent Task Dropdown
+// Parent Task Cell + Picker
 // ════════════════════════════════════════════════════════════════════════════
-const parentDL = document.createElement('div');
-parentDL.className = 'parent-dropdown';
-document.body.appendChild(parentDL);
-let activeGroupInput = null;
 
-function getParentSuggestions(query) {
-  const seen = new Set(); const opts = [];
-  tasks.forEach(t => {
-    if (t.name  && !seen.has(t.name))  { seen.add(t.name);  opts.push(t.name);  }
-    if (t.group && !seen.has(t.group)) { seen.add(t.group); opts.push(t.group); }
-  });
-  opts.sort((a, b) => a.localeCompare(b));
-  if (!query) return opts;
-  const q = query.toLowerCase();
-  return opts.filter(o => o.toLowerCase().includes(q));
+// Always renders the picker button — no text input fallback.
+// Connection/list guards are handled inside showParentPicker() via toasts.
+function renderParentTaskCell(task) {
+  if (!task.parentCuTaskId) {
+    return `<button class="cu-parent-btn" data-cu-parent-pick="${task.id}">
+      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+      Set Parent
+    </button>`;
+  }
+  const shortName = (task.parentCuTaskName || '').length > 14
+    ? task.parentCuTaskName.slice(0, 14) + '…'
+    : (task.parentCuTaskName || '');
+  return `<div class="cu-parent-set-wrap">
+    <button class="cu-parent-set-btn" data-cu-parent-pick="${task.id}" title="${escHtml(task.parentCuTaskName)}">
+      <svg width="6" height="6" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg>
+      ${escHtml(shortName)}
+    </button>
+    <button class="cu-parent-clear-btn" data-cu-parent-clear="${task.id}" title="Clear parent">✕</button>
+  </div>`;
 }
 
-function renderParentDropdown(query) {
-  const items = getParentSuggestions(query);
-  parentDL.innerHTML = items.length
-    ? items.map(o => `<div class="parent-dropdown-item" data-value="${escHtml(o)}">${escHtml(o)}</div>`).join('')
-    : `<div class="parent-dropdown-empty">No suggestions</div>`;
+let activeParentPickKronikId = null;
+
+async function showParentPicker(kronikId, triggerEl) {
+  if (!cu.connected) { toast('Connect to ClickUp first to set a parent task'); return; }
+  if (!cu.listId)    { toast('Select a ClickUp list first to set a parent task'); return; }
+  activeParentPickKronikId = kronikId;
+  const dd = $('cuParentPickerDropdown');
+  const rect = triggerEl.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.display = 'block';
+  $('cuParentPickerSearch').value = '';
+  $('cuParentPickerResults').innerHTML = '<div class="cu-link-loading">Loading tasks…</div>';
+  $('cuParentPickerSearch').focus();
+  await cuCacheListTasks();
+  renderParentPickerResults('');
 }
 
-function positionParentDropdown(input) {
-  const r = input.getBoundingClientRect();
-  parentDL.style.top = (r.bottom + 2) + 'px';
-  parentDL.style.left = r.left + 'px';
-  parentDL.style.minWidth = Math.max(r.width, 180) + 'px';
+function hideParentPicker() {
+  $('cuParentPickerDropdown').style.display = 'none';
+  activeParentPickKronikId = null;
 }
 
-document.addEventListener('mousedown', e => {
-  // Parent task dropdown
-  if (e.target.classList.contains('group-input')) {
-    activeGroupInput = e.target;
-    renderParentDropdown('');
-    positionParentDropdown(e.target);
-    parentDL.style.display = 'block';
-  } else if (!parentDL.contains(e.target)) {
-    parentDL.style.display = 'none';
-    activeGroupInput = null;
+function renderParentPickerResults(query) {
+  const kronikId = activeParentPickKronikId;
+  const self = tasks.find(t => t.id === kronikId);
+  const trimmed = query.trim();
+  // No leading + — the SVG icon provides the visual plus
+  const createLabel = trimmed
+    ? `Create new parent "${escHtml(trimmed)}"`
+    : 'Create new ClickUp task as parent';
+
+  // All list tasks except the task being configured
+  let items = cu.listTasks.filter(t => !(self && t.id === self.clickupTaskId));
+  if (query) {
+    const q = query.toLowerCase();
+    items = items.filter(t => t.name.toLowerCase().includes(q));
   }
 
+  let html = `<div class="cu-link-create" data-action="parent-create" data-kronik-id="${kronikId}">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    ${createLabel}
+  </div>`;
+
+  if (items.length === 0) {
+    html += `<div class="cu-link-empty">${query ? 'No matching tasks in list' : 'No tasks found in selected list'}</div>`;
+  } else {
+    items.slice(0, 50).forEach(t => {
+      html += `<div class="cu-parent-pick-item" data-cu-id="${escHtml(t.id)}" data-cu-name="${escHtml(t.name)}" data-kronik-id="${kronikId}">${escHtml(t.name)}</div>`;
+    });
+  }
+  $('cuParentPickerResults').innerHTML = html;
+}
+
+function clearParentTask(kronikId) {
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task) return;
+  task.parentCuTaskId   = null;
+  task.parentCuTaskName = '';
+  task.group            = '';
+  render();
+}
+
+$('cuParentPickerSearch').addEventListener('input', e => {
+  renderParentPickerResults(e.target.value);
+});
+
+$('cuParentPickerResults').addEventListener('mousedown', async e => {
+  e.preventDefault();
+  const kronikId = activeParentPickKronikId;
+  if (kronikId === null) return;
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task) return;
+
+  const createBtn = e.target.closest('[data-action="parent-create"]');
+  if (createBtn) {
+    const name = $('cuParentPickerSearch').value.trim();
+    if (!name) { toast('Type a task name to create a new parent'); return; }
+    hideParentPicker();
+    toast('Creating parent task in ClickUp…');
+    try {
+      const parentData = await cuApi(`/list/${cu.listId}/task`, {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      });
+      cu.listTasks.push(parentData);
+      task.parentCuTaskId   = parentData.id;
+      task.parentCuTaskName = parentData.name;
+      task.group            = parentData.name;
+      render();
+      toast(`Parent set → "${parentData.name}"`, 'cu-toast');
+    } catch(err) {
+      toast(`Failed to create parent: ${_cuErrMsg(err)}`, 'warn');
+    }
+    return;
+  }
+
+  const item = e.target.closest('.cu-parent-pick-item');
+  if (item) {
+    hideParentPicker();
+    task.parentCuTaskId   = item.dataset.cuId;
+    task.parentCuTaskName = item.dataset.cuName;
+    task.group            = item.dataset.cuName;
+    render();
+    toast(`Parent set → "${item.dataset.cuName}"`, 'cu-toast');
+  }
+});
+
+document.addEventListener('mousedown', e => {
   // ClickUp link dropdown
   if (!$('cuLinkDropdown').contains(e.target) && !e.target.closest('[data-cu-link]')) {
     hideLinkDropdown();
   }
-});
-
-document.addEventListener('input', e => {
-  if (e.target.classList.contains('group-input') && activeGroupInput === e.target) {
-    renderParentDropdown(e.target.value);
-    positionParentDropdown(e.target);
+  // Parent picker dropdown
+  if (!$('cuParentPickerDropdown').contains(e.target) &&
+      !e.target.closest('[data-cu-parent-pick]')) {
+    hideParentPicker();
   }
-});
-
-parentDL.addEventListener('mousedown', e => {
-  const item = e.target.closest('.parent-dropdown-item');
-  if (!item || !activeGroupInput) return;
-  e.preventDefault();
-  activeGroupInput.value = item.dataset.value;
-  activeGroupInput.dispatchEvent(new Event('change', { bubbles: true }));
-  parentDL.style.display = 'none';
-  activeGroupInput = null;
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1808,16 +1983,19 @@ parentDL.addEventListener('mousedown', e => {
 // ════════════════════════════════════════════════════════════════════════════
 let activeLinkKronikId = null;
 
-function showLinkDropdown(kronikId, triggerBtn) {
+async function showLinkDropdown(kronikId, triggerBtn) {
   activeLinkKronikId = kronikId;
   const dd = $('cuLinkDropdown');
   const rect = triggerBtn.getBoundingClientRect();
   dd.style.top  = (rect.bottom + 4) + 'px';
   dd.style.left = rect.left + 'px';
   dd.style.display = 'block';
-  renderLinkResults('');
   $('cuLinkSearchInput').value = '';
+  $('cuLinkResults').innerHTML = '<div class="cu-link-loading">Loading tasks…</div>';
   $('cuLinkSearchInput').focus();
+  // Always refresh so subtasks and newly-created tasks are current
+  await cuCacheListTasks();
+  renderLinkResults('');
 }
 
 function hideLinkDropdown() {
@@ -1827,22 +2005,46 @@ function hideLinkDropdown() {
 
 function renderLinkResults(query) {
   const container = $('cuLinkResults');
+  const taskId = activeLinkKronikId;
+  const kronikTask = tasks.find(t => t.id === taskId);
+  const parentId = kronikTask?.parentCuTaskId || null;
+
+  // When a parent is linked, scope to only that parent's subtasks.
+  // Subtasks carry a `parent` field (string task ID) from the ClickUp API.
   let items = cu.listTasks;
+  if (parentId) {
+    items = items.filter(t => {
+      const p = t.parent;
+      return p === parentId || (p && p.id === parentId);
+    });
+  }
+
   if (query) {
     const q = query.toLowerCase();
     items = items.filter(t => t.name.toLowerCase().includes(q));
   }
 
-  const taskId = activeLinkKronikId;
-  let html = `<div class="cu-link-create" data-action="create" data-kronik-id="${taskId}">
+  const createLabel = parentId ? 'Create new subtask' : 'Create new ClickUp task';
+  let html = '';
+
+  // Scope banner when a parent is active
+  if (parentId) {
+    const parentName = kronikTask.parentCuTaskName || 'parent task';
+    html += `<div class="cu-link-scope-note">Subtasks of: ${escHtml(parentName)}</div>`;
+  }
+
+  html += `<div class="cu-link-create" data-action="create" data-kronik-id="${taskId}">
     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Create new ClickUp task
+    ${createLabel}
   </div>`;
 
   if (items.length === 0) {
-    html += `<div class="cu-link-empty">No matching tasks in list</div>`;
+    const emptyMsg = parentId
+      ? (query ? 'No matching subtasks' : 'No subtasks yet — create one above')
+      : (query ? 'No matching tasks in list' : 'No tasks found in selected list');
+    html += `<div class="cu-link-empty">${emptyMsg}</div>`;
   } else {
-    items.slice(0, 30).forEach(t => {
+    items.slice(0, 50).forEach(t => {
       html += `<div class="cu-link-item" data-cu-id="${escHtml(t.id)}" data-cu-name="${escHtml(t.name)}" data-kronik-id="${taskId}">${escHtml(t.name)}</div>`;
     });
   }
@@ -1884,13 +2086,6 @@ $('cuListSelect').addEventListener('change', async e => {
   cuSave();
   if (cu.listId) await cuCacheListTasks();
   render();
-});
-
-$('cuToggleBtn').addEventListener('click', () => {
-  const bar = $('cuConfigBar');
-  const collapsed = bar.classList.toggle('collapsed');
-  $('cuToggleBtn').textContent = collapsed ? '▼ ClickUp' : '▲ Hide';
-  localStorage.setItem('kronkup_cu_collapsed', collapsed ? '1' : '0');
 });
 
 $('cuPushAllBtn').addEventListener('click', cuPushAll);
@@ -2013,11 +2208,6 @@ if (cu.apiKey) {
   // Auto-reconnect on load if key was saved
   cuConnect();
 }
-if (localStorage.getItem('kronkup_cu_collapsed') === '1') {
-  $('cuConfigBar').classList.add('collapsed');
-  $('cuToggleBtn').textContent = '▼ ClickUp';
-}
-
 render();
 </script>
 </body>
