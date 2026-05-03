@@ -12,19 +12,23 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 
 ### Core (KRONK)
 - **Task log** — add named tasks with an optional Parent Task field
+- **Auto-start on create** — creating a task immediately starts its timer; any previously running timer is stopped automatically
 - **Start / Stop timer** — one active task at a time; switching auto-stops the previous
+- **Sticky STOP button** — a STOP button appears in the header whenever a timer is running, so you can stop from anywhere without scrolling
 - **Multiple time entries per task** — each start/stop cycle creates a new entry
 - **Inline time editing** — click any Start or End time on a completed entry to correct it
 - **Parent Task suggestions** — dropdown auto-populates from existing task and parent names; free-text also accepted
 - **Live duration counter** — running entries tick in real time
+- **Auto-stop on tab hide** — if you switch away or close the tab, any running timer is stopped and saved automatically
 - **Export** — download all data as CSV or JSON to your local Downloads folder
-- **Speech-to-text** — click the microphone to dictate a task name (Chrome)
-- **Zero persistence by default** — data lives in memory; export before closing
+- **Speech-to-text** — click the microphone to dictate a task name; the task is created and timed automatically when you finish speaking (Chrome)
+- **Persistent data** — tasks, entries, and times are saved to `localStorage` and restored on next open
 
 ### ClickUp Integration (KRONK-up)
 - **API key auth** — connect with a personal ClickUp API token; no OAuth, no backend
 - **Workspace → Space → List selector** — choose exactly which list to work against
 - **Link tasks** — search your ClickUp list by name and link to an existing task, or create a new one directly from KRONK-up
+- **Parent task picker** — set a ClickUp parent task per row; linked tasks are created as subtasks automatically
 - **Push time entries** — send individual task entries or all linked tasks at once to ClickUp's time tracking
 - **Sync indicators** — each entry shows whether it has been pushed (✓) or is pending (○)
 - **Re-push on edit** — editing a pushed entry's time marks it unsynced so it can be corrected in ClickUp
@@ -92,9 +96,16 @@ Both files are fully self-contained. They share no external scripts or styleshee
 ## Data & Privacy
 
 - **No data is sent anywhere except ClickUp** — and only when you explicitly click Push
-- Your ClickUp API key is stored in your browser's `localStorage` under the key `kronkup_cu`
-- Task data (names, times, entries) lives only in browser memory and is cleared on page close unless exported
-- To remove stored credentials: open DevTools → Application → Local Storage → delete `kronkup_cu`
+- Task data (names, times, entries) is saved in `localStorage` and survives page close and refresh
+- Your ClickUp API key and workspace config are stored separately under the key `kronkup_cu`
+
+| App | localStorage key | Contents |
+|---|---|---|
+| KRONK | `kronk_tasks` | All tasks and time entries |
+| KRONK-up | `kronkup_tasks` | All tasks and time entries |
+| KRONK-up | `kronkup_cu` | API key, workspace, space, and list selection |
+
+To clear all stored data: open DevTools → Application → Local Storage → delete the relevant keys.
 
 ---
 
@@ -102,7 +113,7 @@ Both files are fully self-contained. They share no external scripts or styleshee
 
 | Shortcut | Action |
 |---|---|
-| `Enter` in task name field | Add task |
+| `Enter` in task name field | Create task and start its timer |
 | `Enter` in API key field | Connect to ClickUp |
 
 ---
@@ -130,6 +141,7 @@ KRONK-up uses the following ClickUp v2 endpoints:
 | `GET` | `/space/{id}/list` | Folderless lists |
 | `GET` | `/list/{id}/task` | Fetch tasks for linking |
 | `POST` | `/list/{id}/task` | Create a new task |
+| `PUT` | `/task/{id}` | Convert task to subtask |
 | `POST` | `/task/{id}/time` | Log a time entry |
 
 ---
