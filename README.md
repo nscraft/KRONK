@@ -128,6 +128,28 @@ To clear all stored data: open DevTools → Application → Local Storage → de
 
 ---
 
+## Microphone Permissions
+
+Modern browsers do not persist microphone permissions for files opened directly from disk (`file://` URLs). If Chrome or Edge re-prompts you for microphone access every session, serve KRONK from a local web server instead. Once running on `localhost`, the browser will remember your choice.
+
+**Python** (3.x):
+```bash
+cd path/to/kronk
+python -m http.server 8000
+```
+Open `http://localhost:8000/KRONK.html` (or `KRONK-up.html`).
+
+**Node.js** (via npx, no install required):
+```bash
+npx serve path/to/kronk
+```
+
+**VS Code** — install the [Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) extension, right-click the HTML file, and choose **Open with Live Server**.
+
+> This only affects speech-to-text. All other features work identically whether opened as a file or served from localhost.
+
+---
+
 ## ClickUp API Reference
 
 KRONK-up uses the following ClickUp v2 endpoints:
