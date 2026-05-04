@@ -1201,17 +1201,23 @@
 
   function positionParentDropdown(input) {
     const rect = input.getBoundingClientRect();
-    parentDL.style.top = (rect.bottom + 2) + 'px';
-    parentDL.style.left = rect.left + 'px';
     parentDL.style.minWidth = Math.max(rect.width, 180) + 'px';
+    parentDL.style.left = rect.left + 'px';
+    const ddH = parentDL.offsetHeight;
+    const spaceBelow = window.innerHeight - rect.bottom - 2;
+    if (ddH > spaceBelow && rect.top > ddH + 2) {
+      parentDL.style.top = (rect.top - ddH - 2) + 'px';
+    } else {
+      parentDL.style.top = (rect.bottom + 2) + 'px';
+    }
   }
 
   document.addEventListener('mousedown', e => {
     if (e.target.classList.contains('group-input')) {
       activeGroupInput = e.target;
       renderParentDropdown('');
-      positionParentDropdown(e.target);
       parentDL.style.display = 'block';
+      positionParentDropdown(e.target);
       return;
     }
     if (parentDL.contains(e.target)) return;
