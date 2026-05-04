@@ -1916,15 +1916,14 @@ async function showParentPicker(kronikId, triggerEl) {
   if (!cu.listId)    { toast('Select a ClickUp list first to set a parent task'); return; }
   activeParentPickKronikId = kronikId;
   const dd = $('cuParentPickerDropdown');
-  const rect = triggerEl.getBoundingClientRect();
-  dd.style.top  = (rect.bottom + 4) + 'px';
-  dd.style.left = rect.left + 'px';
-  dd.style.display = 'block';
   $('cuParentPickerSearch').value = '';
   $('cuParentPickerResults').innerHTML = '<div class="cu-link-loading">Loading tasks…</div>';
+  dd.style.display = 'block';
+  positionCuDropdown(dd, triggerEl);
   $('cuParentPickerSearch').focus();
   await cuCacheListTasks();
   renderParentPickerResults('');
+  if (dd.style.display === 'block') positionCuDropdown(dd, triggerEl);
 }
 
 function hideParentPicker() {
@@ -2034,19 +2033,30 @@ document.addEventListener('mousedown', e => {
 // ════════════════════════════════════════════════════════════════════════════
 let activeLinkKronikId = null;
 
+function positionCuDropdown(dd, triggerEl) {
+  const rect = triggerEl.getBoundingClientRect();
+  const ddH = dd.offsetHeight;
+  const spaceBelow = window.innerHeight - rect.bottom - 4;
+  if (ddH > spaceBelow && rect.top > ddH + 4) {
+    dd.style.top = (rect.top - ddH - 4) + 'px';
+  } else {
+    dd.style.top = (rect.bottom + 4) + 'px';
+  }
+  dd.style.left = rect.left + 'px';
+}
+
 async function showLinkDropdown(kronikId, triggerBtn) {
   activeLinkKronikId = kronikId;
   const dd = $('cuLinkDropdown');
-  const rect = triggerBtn.getBoundingClientRect();
-  dd.style.top  = (rect.bottom + 4) + 'px';
-  dd.style.left = rect.left + 'px';
-  dd.style.display = 'block';
   $('cuLinkSearchInput').value = '';
   $('cuLinkResults').innerHTML = '<div class="cu-link-loading">Loading tasks…</div>';
+  dd.style.display = 'block';
+  positionCuDropdown(dd, triggerBtn);
   $('cuLinkSearchInput').focus();
   // Always refresh so subtasks and newly-created tasks are current
   await cuCacheListTasks();
   renderLinkResults('');
+  if (dd.style.display === 'block') positionCuDropdown(dd, triggerBtn);
 }
 
 function hideLinkDropdown() {
