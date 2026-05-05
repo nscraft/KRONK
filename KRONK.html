@@ -171,7 +171,7 @@
     border-bottom: none;
   }
 
-  .task-typeahead-item:first-child,
+  .task-typeahead-item.is-active,
   .task-typeahead-item:hover {
     background: var(--accent-dim);
     color: var(--accent);
@@ -1173,6 +1173,9 @@
   }
 
   // ── New Task Typeahead ─────────────────────────────────────────────────────
+  let taskTypeaheadItems = [];
+  let taskTypeaheadIndex = 0;
+
   function getTaskSuggestions(query) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
@@ -1184,30 +1187,42 @@
 
   function renderTaskTypeahead() {
     const input = $('taskNameInput');
-    const matches = getTaskSuggestions(input.value);
+    taskTypeaheadItems = getTaskSuggestions(input.value);
     const dropdown = $('taskTypeahead');
 
-    if (matches.length === 0 || document.activeElement !== input) {
+    if (taskTypeaheadItems.length === 0 || document.activeElement !== input) {
       hideTaskTypeahead();
       return;
     }
 
-    dropdown.innerHTML = matches.map(t =>
-      `<div class="task-typeahead-item" data-task-id="${t.id}">${escHtml(t.name)}</div>`
+    taskTypeaheadIndex = Math.min(taskTypeaheadIndex, taskTypeaheadItems.length - 1);
+    dropdown.innerHTML = taskTypeaheadItems.map((t, i) =>
+      `<div class="task-typeahead-item${i === taskTypeaheadIndex ? ' is-active' : ''}" data-index="${i}" data-task-id="${t.id}">${escHtml(t.name)}</div>`
     ).join('');
     dropdown.style.display = 'block';
+    dropdown.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
   }
 
   function hideTaskTypeahead() {
     $('taskTypeahead').style.display = 'none';
+    taskTypeaheadItems = [];
+    taskTypeaheadIndex = 0;
   }
 
-  function startTopTaskSuggestion() {
-    const match = getTaskSuggestions($('taskNameInput').value)[0];
+  function startActiveTaskSuggestion() {
+    const match = taskTypeaheadItems[taskTypeaheadIndex] || getTaskSuggestions($('taskNameInput').value)[0];
     if (!match) return false;
     $('taskNameInput').value = '';
     hideTaskTypeahead();
     startTask(match.id);
+    return true;
+  }
+
+  function moveTaskTypeahead(delta) {
+    if (taskTypeaheadItems.length === 0) renderTaskTypeahead();
+    if (taskTypeaheadItems.length === 0) return false;
+    taskTypeaheadIndex = (taskTypeaheadIndex + delta + taskTypeaheadItems.length) % taskTypeaheadItems.length;
+    renderTaskTypeahead();
     return true;
   }
 
@@ -1217,14 +1232,25 @@
   });
 
   $('taskNameInput').addEventListener('keydown', e => {
-    if (e.key === 'Tab' && startTopTaskSuggestion()) {
+    if (e.key === 'ArrowDown' && moveTaskTypeahead(1)) {
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'ArrowUp' && moveTaskTypeahead(-1)) {
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'Tab' && startActiveTaskSuggestion()) {
       e.preventDefault();
       return;
     }
     if (e.key === 'Enter') addTask($('taskNameInput').value);
   });
 
-  $('taskNameInput').addEventListener('input', renderTaskTypeahead);
+  $('taskNameInput').addEventListener('input', () => {
+    taskTypeaheadIndex = 0;
+    renderTaskTypeahead();
+  });
   $('taskNameInput').addEventListener('focus', renderTaskTypeahead);
   $('taskNameInput').addEventListener('blur', () => setTimeout(hideTaskTypeahead, 100));
 
@@ -1234,7 +1260,8 @@
     e.preventDefault();
     $('taskNameInput').value = '';
     hideTaskTypeahead();
-    startTask(Number(item.dataset.taskId));
+    const match = taskTypeaheadItems[Number(item.dataset.index)];
+    startTask(match ? match.id : Number(item.dataset.taskId));
   });
 
   // ── Speech to Text ─────────────────────────────────────────────────────────

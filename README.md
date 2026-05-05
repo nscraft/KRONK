@@ -29,6 +29,8 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 - **API key auth** — connect with a personal ClickUp API token; no OAuth, no backend
 - **Workspace → Space → List selector** — choose exactly which list to work against
 - **Link tasks** — search your ClickUp list by name and link to an existing task, or create a new one directly from KRONK-up
+- **ClickUp task typeahead** — the new-task field suggests tasks assigned to you in the selected ClickUp list plus KRONK tasks used in the past 48 hours
+- **Create assigned tasks** — tasks created in ClickUp from KRONK-up are assigned to the connected ClickUp user
 - **Parent task picker** — set a ClickUp parent task per row; linked tasks are created as subtasks automatically
 - **Push time entries** — send individual task entries or all linked tasks at once to ClickUp's time tracking
 - **Sync indicators** — each entry shows whether it has been pushed (✓) or is pending (○)

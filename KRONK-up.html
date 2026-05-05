@@ -372,10 +372,19 @@
 
   .task-typeahead-item:last-child { border-bottom: none; }
 
-  .task-typeahead-item:first-child,
+  .task-typeahead-item.is-active,
   .task-typeahead-item:hover {
     background: var(--accent-dim);
     color: var(--accent);
+  }
+
+  .task-typeahead-source {
+    float: right;
+    margin-left: 12px;
+    color: var(--text-muted);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   /* ── Table ── */
@@ -1160,7 +1169,7 @@
 // KRONK core state
 // ════════════════════════════════════════════════════════════════════════════
 let tasks = [];
-// task shape: { id, name, group, entries, clickupTaskId, clickupTaskName }
+// task shape: { id, name, group, entries, clickupTaskId, clickupTaskName, clickupSpaceId, clickupListId }
 // entry shape: { id, startTime, endTime, pushedToClickup }
 let idCounter = 0;
 let entryIdCounter = 0;
@@ -1257,6 +1266,8 @@ const CU_BASE = 'https://api.clickup.com/api/v2';
 let cu = {
   apiKey: '',
   workspaceId: '',
+  userId: '',
+  userName: '',
   spaceId: '',
   listId: '',
   connected: false,
@@ -1267,6 +1278,8 @@ function cuSave() {
   localStorage.setItem('kronkup_cu', JSON.stringify({
     apiKey: cu.apiKey,
     workspaceId: cu.workspaceId,
+    userId: cu.userId,
+    userName: cu.userName,
     spaceId: cu.spaceId,
     listId: cu.listId,
   }));
@@ -1277,6 +1290,8 @@ function cuLoad() {
     const s = JSON.parse(localStorage.getItem('kronkup_cu') || '{}');
     cu.apiKey       = s.apiKey       || '';
     cu.workspaceId  = s.workspaceId  || '';
+    cu.userId       = s.userId       || '';
+    cu.userName     = s.userName     || '';
     cu.spaceId      = s.spaceId      || '';
     cu.listId       = s.listId       || '';
   } catch(e) {}
@@ -1319,9 +1334,15 @@ async function cuConnect() {
   $('cuConnectBtn').disabled = true;
 
   try {
-    const data = await cuApi('/team');
+    const [data, me] = await Promise.all([
+      cuApi('/team'),
+      cuApi('/user'),
+    ]);
     const ws = data.teams[0];
+    const user = me.user || me;
     cu.workspaceId = ws.id;
+    cu.userId = user.id || '';
+    cu.userName = user.username || user.name || user.email || '';
     cu.connected = true;
     cuSave();
     setCuStatus('connected', ws.name);
@@ -1414,14 +1435,30 @@ async function cuLoadLists(spaceId, restoreSaved = false) {
 // ── Cache tasks for selected list ────────────────────────────────────────────
 async function cuCacheListTasks() {
   if (!cu.listId) { cu.listTasks = []; return; }
+  if (!cu.userId) { cu.listTasks = []; toast('Could not identify current ClickUp user'); return; }
   try {
     // subtasks=true returns subtasks nested inside parent.subtasks[] — we flatten them
-    const data = await cuApi(`/list/${cu.listId}/task?archived=false&page=0&subtasks=true`);
+    const data = await cuApi(`/list/${cu.listId}/task?archived=false&page=0&subtasks=true&assignees[]=${encodeURIComponent(cu.userId)}`);
     cu.listTasks = _flattenTasks(data.tasks || []);
+    rememberCurrentListForLinkedTasks();
   } catch(e) {
     cu.listTasks = [];
     toast('Could not load task list from ClickUp');
   }
+}
+
+function rememberCurrentListForLinkedTasks() {
+  const ids = new Set(cu.listTasks.map(t => t.id));
+  let changed = false;
+  tasks.forEach(t => {
+    if (!t.clickupTaskId || !ids.has(t.clickupTaskId)) return;
+    const prevSpaceId = t.clickupSpaceId;
+    const prevListId = t.clickupListId;
+    t.clickupSpaceId = cu.spaceId || t.clickupSpaceId || null;
+    t.clickupListId = cu.listId || t.clickupListId || null;
+    changed = changed || t.clickupSpaceId !== prevSpaceId || t.clickupListId !== prevListId;
+  });
+  if (changed) saveTasks();
 }
 
 // Recursively flatten a ClickUp task list so subtasks appear alongside top-level tasks.
@@ -1442,8 +1479,7 @@ function _flattenTasks(taskList) {
 function cuLinkTask(kronikId, cuTaskId, cuTaskName) {
   const task = tasks.find(t => t.id === kronikId);
   if (!task) return;
-  task.clickupTaskId   = cuTaskId;
-  task.clickupTaskName = cuTaskName;
+  setTaskClickUpLink(task, { id: cuTaskId, name: cuTaskName });
   hideLinkDropdown();
   render();
   toast(`Linked → ${cuTaskName}`, 'cu-toast');
@@ -1454,7 +1490,22 @@ function cuUnlinkTask(kronikId) {
   if (!task) return;
   task.clickupTaskId   = null;
   task.clickupTaskName = '';
+  task.clickupSpaceId  = null;
+  task.clickupListId   = null;
   render();
+}
+
+function setTaskClickUpLink(task, cuTask) {
+  task.clickupTaskId   = cuTask.id;
+  task.clickupTaskName = cuTask.name;
+  task.clickupSpaceId  = cu.spaceId || task.clickupSpaceId || null;
+  task.clickupListId   = cu.listId || task.clickupListId || null;
+}
+
+function cuCreateTaskBody(name) {
+  const body = { name };
+  if (cu.userId) body.assignees = [Number(cu.userId) || cu.userId];
+  return body;
 }
 
 async function cuCreateAndLink(kronikId) {
@@ -1473,7 +1524,7 @@ async function _cuCreateStandalone(kronikId, task) {
   try {
     const data = await cuApi(`/list/${cu.listId}/task`, {
       method: 'POST',
-      body: JSON.stringify({ name: task.name }),
+      body: JSON.stringify(cuCreateTaskBody(task.name)),
     });
     cu.listTasks.push(data);
     cuLinkTask(kronikId, data.id, data.name);
@@ -1490,7 +1541,7 @@ async function _cuCreateSubtask(kronikId, task, parentId, parentDisplayName) {
   try {
     created = await cuApi(`/list/${cu.listId}/task`, {
       method: 'POST',
-      body: JSON.stringify({ name: task.name }),
+      body: JSON.stringify(cuCreateTaskBody(task.name)),
     });
   } catch(e) {
     toast(`Failed to create ClickUp task: ${_cuErrMsg(e)}`);
@@ -1783,6 +1834,7 @@ function addTask(name) {
   const newTask = {
     id: uid(), name: trimmed, group: '', entries: [],
     clickupTaskId: null, clickupTaskName: '',
+    clickupSpaceId: null, clickupListId: null,
     parentCuTaskId: null, parentCuTaskName: '',
   };
   tasks.push(newTask);
@@ -1954,64 +2006,183 @@ function parseTimeEdit(value, baseDate) {
 // ════════════════════════════════════════════════════════════════════════════
 $('addTaskBtn').addEventListener('click', () => addTask($('taskNameInput').value));
 
+let taskTypeaheadItems = [];
+let taskTypeaheadIndex = 0;
+
 function getTaskSuggestions(query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return tasks
+
+  const suggestions = [];
+  const seenClickUpIds = new Set();
+  const seenNames = new Set();
+
+  if (cu.connected && cu.listId) {
+    cu.listTasks
+      .filter(t => (t.name || '').toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(t => {
+        const nameKey = normalizeTaskName(t.name);
+        seenClickUpIds.add(t.id);
+        seenNames.add(nameKey);
+        suggestions.push({ type: 'clickup', id: t.id, name: t.name });
+      });
+  }
+
+  getRecentKronkTasks()
     .filter(t => (t.name || '').toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, 8);
+    .forEach(t => {
+      const nameKey = normalizeTaskName(t.name);
+      if (t.clickupTaskId && seenClickUpIds.has(t.clickupTaskId)) return;
+      if (seenNames.has(nameKey)) return;
+      seenNames.add(nameKey);
+      suggestions.push({ type: 'recent', id: t.id, name: t.name });
+    });
+
+  return suggestions.slice(0, 8);
+}
+
+function getRecentKronkTasks() {
+  const cutoff = Date.now() - (48 * 60 * 60 * 1000);
+  return tasks.filter(t => (t.entries || []).some(e => {
+    const loggedAt = e.endTime || e.startTime;
+    return loggedAt && new Date(loggedAt).getTime() >= cutoff;
+  }));
+}
+
+function normalizeTaskName(name) {
+  return (name || '').trim().toLowerCase();
 }
 
 function renderTaskTypeahead() {
   const input = $('taskNameInput');
-  const matches = getTaskSuggestions(input.value);
+  taskTypeaheadItems = getTaskSuggestions(input.value);
   const dropdown = $('taskTypeahead');
 
-  if (matches.length === 0 || document.activeElement !== input) {
+  if (taskTypeaheadItems.length === 0 || document.activeElement !== input) {
     hideTaskTypeahead();
     return;
   }
 
-  dropdown.innerHTML = matches.map(t =>
-    `<div class="task-typeahead-item" data-task-id="${t.id}">${escHtml(t.name)}</div>`
+  taskTypeaheadIndex = Math.min(taskTypeaheadIndex, taskTypeaheadItems.length - 1);
+  dropdown.innerHTML = taskTypeaheadItems.map((t, i) =>
+    `<div class="task-typeahead-item${i === taskTypeaheadIndex ? ' is-active' : ''}" data-index="${i}" data-source="${t.type}" data-id="${escHtml(String(t.id))}">
+      ${escHtml(t.name)}
+      <span class="task-typeahead-source">${t.type === 'clickup' ? 'ClickUp' : 'Recent'}</span>
+    </div>`
   ).join('');
   dropdown.style.display = 'block';
+  dropdown.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
 }
 
 function hideTaskTypeahead() {
   $('taskTypeahead').style.display = 'none';
+  taskTypeaheadItems = [];
+  taskTypeaheadIndex = 0;
 }
 
-function startTopTaskSuggestion() {
-  const match = getTaskSuggestions($('taskNameInput').value)[0];
+async function startActiveTaskSuggestion() {
+  const match = taskTypeaheadItems[taskTypeaheadIndex] || getTaskSuggestions($('taskNameInput').value)[0];
   if (!match) return false;
-  $('taskNameInput').value = '';
-  hideTaskTypeahead();
-  startTask(match.id);
+  await selectTaskSuggestion(match);
+  return true;
+}
+
+function moveTaskTypeahead(delta) {
+  if (taskTypeaheadItems.length === 0) renderTaskTypeahead();
+  if (taskTypeaheadItems.length === 0) return false;
+  taskTypeaheadIndex = (taskTypeaheadIndex + delta + taskTypeaheadItems.length) % taskTypeaheadItems.length;
+  renderTaskTypeahead();
   return true;
 }
 
 $('taskNameInput').addEventListener('keydown', e => {
-  if (e.key === 'Tab' && startTopTaskSuggestion()) {
+  if (e.key === 'ArrowDown' && moveTaskTypeahead(1)) {
     e.preventDefault();
+    return;
+  }
+  if (e.key === 'ArrowUp' && moveTaskTypeahead(-1)) {
+    e.preventDefault();
+    return;
+  }
+  if (e.key === 'Tab' && getTaskSuggestions($('taskNameInput').value).length > 0) {
+    e.preventDefault();
+    startActiveTaskSuggestion();
     return;
   }
   if (e.key === 'Enter') addTask($('taskNameInput').value);
 });
 
-$('taskNameInput').addEventListener('input', renderTaskTypeahead);
-$('taskNameInput').addEventListener('focus', renderTaskTypeahead);
+$('taskNameInput').addEventListener('input', () => {
+  taskTypeaheadIndex = 0;
+  renderTaskTypeahead();
+});
+$('taskNameInput').addEventListener('focus', async () => {
+  if (cu.connected && cu.listId && cu.listTasks.length === 0) await cuCacheListTasks();
+  renderTaskTypeahead();
+});
 $('taskNameInput').addEventListener('blur', () => setTimeout(hideTaskTypeahead, 100));
 
-$('taskTypeahead').addEventListener('mousedown', e => {
+$('taskTypeahead').addEventListener('mousedown', async e => {
   const item = e.target.closest('.task-typeahead-item');
   if (!item) return;
   e.preventDefault();
+  await selectTaskSuggestion(taskTypeaheadItems[Number(item.dataset.index)] || {
+    type: item.dataset.source,
+    id: item.dataset.id,
+  });
+});
+
+async function selectTaskSuggestion(suggestion) {
   $('taskNameInput').value = '';
   hideTaskTypeahead();
-  startTask(Number(item.dataset.taskId));
-});
+
+  if (suggestion.type === 'recent') {
+    const task = tasks.find(t => t.id === Number(suggestion.id));
+    if (!task) return;
+    await selectTaskOrigin(task);
+    startTask(task.id);
+    return;
+  }
+
+  const cuTask = cu.listTasks.find(t => t.id === suggestion.id);
+  if (!cuTask) return;
+  const nameKey = normalizeTaskName(cuTask.name);
+  let task = tasks.find(t => t.clickupTaskId === cuTask.id);
+  task = task || tasks.find(t => normalizeTaskName(t.name) === nameKey);
+
+  if (!task) {
+    task = {
+      id: uid(), name: cuTask.name, group: '', entries: [],
+      clickupTaskId: null, clickupTaskName: '',
+      clickupSpaceId: null, clickupListId: null,
+      parentCuTaskId: null, parentCuTaskName: '',
+    };
+    tasks.push(task);
+  }
+
+  setTaskClickUpLink(task, cuTask);
+  startTask(task.id);
+}
+
+async function selectTaskOrigin(task) {
+  if (!cu.connected || !task.clickupSpaceId || !task.clickupListId) return;
+
+  if (cu.spaceId !== task.clickupSpaceId) {
+    $('cuSpaceSelect').value = task.clickupSpaceId;
+    if (!$('cuSpaceSelect').value) return;
+    await cuLoadLists(task.clickupSpaceId);
+  }
+
+  if (cu.listId !== task.clickupListId) {
+    cu.listId = task.clickupListId;
+    $('cuListSelect').value = task.clickupListId;
+    if (!$('cuListSelect').value) return;
+    cuSave();
+    await cuCacheListTasks();
+  }
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // Parent Task Cell + Picker
@@ -2120,7 +2291,7 @@ $('cuParentPickerResults').addEventListener('mousedown', async e => {
     try {
       const parentData = await cuApi(`/list/${cu.listId}/task`, {
         method: 'POST',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(cuCreateTaskBody(name)),
       });
       cu.listTasks.push(parentData);
       task.parentCuTaskId   = parentData.id;
