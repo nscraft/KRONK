@@ -1231,6 +1231,20 @@ function totalTaskDuration(task) {
   }, 0);
 }
 
+function getTaskLastLoggedAt(task) {
+  return (task.entries || []).reduce((latest, e) => {
+    const loggedAt = e.endTime || e.startTime;
+    return Math.max(latest, loggedAt ? new Date(loggedAt).getTime() : 0);
+  }, 0);
+}
+
+function getTasksForDisplay() {
+  return tasks
+    .map((task, index) => ({ task, index, lastLoggedAt: getTaskLastLoggedAt(task) }))
+    .sort((a, b) => (b.lastLoggedAt - a.lastLoggedAt) || (a.index - b.index))
+    .map(item => item.task);
+}
+
 function getRunningEntry(task) {
   return task.entries.find(e => e.startTime && !e.endTime);
 }
@@ -1693,7 +1707,7 @@ function render() {
   }
 
   list.innerHTML = '';
-  tasks.forEach(task => {
+  getTasksForDisplay().forEach(task => {
     const running = getRunningEntry(task);
     const block = document.createElement('div');
     block.className = `task-block${running ? ' is-running' : ''}`;
