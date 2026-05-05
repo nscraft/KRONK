@@ -2031,7 +2031,6 @@ function getTaskSuggestions(query) {
 
   getRecentKronkTasks()
     .filter(t => (t.name || '').toLowerCase().includes(q))
-    .sort((a, b) => a.name.localeCompare(b.name))
     .forEach(t => {
       const nameKey = normalizeTaskName(t.name);
       if (t.clickupTaskId && seenClickUpIds.has(t.clickupTaskId)) return;
@@ -2045,10 +2044,16 @@ function getTaskSuggestions(query) {
 
 function getRecentKronkTasks() {
   const cutoff = Date.now() - (48 * 60 * 60 * 1000);
-  return tasks.filter(t => (t.entries || []).some(e => {
+  return tasks
+    .filter(t => getLastLoggedAt(t) >= cutoff)
+    .sort((a, b) => getLastLoggedAt(b) - getLastLoggedAt(a));
+}
+
+function getLastLoggedAt(task) {
+  return (task.entries || []).reduce((latest, e) => {
     const loggedAt = e.endTime || e.startTime;
-    return loggedAt && new Date(loggedAt).getTime() >= cutoff;
-  }));
+    return Math.max(latest, loggedAt ? new Date(loggedAt).getTime() : 0);
+  }, 0);
 }
 
 function normalizeTaskName(name) {
