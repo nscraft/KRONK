@@ -32,6 +32,7 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 - **ClickUp task typeahead** — the new-task field suggests tasks assigned to you in the selected ClickUp list plus KRONK tasks used in the past 48 hours
 - **Create assigned tasks** — tasks created in ClickUp from KRONK-up are assigned to the connected ClickUp user
 - **Parent task picker** — set a ClickUp parent task per row; linked tasks are created as subtasks automatically
+- **Task status updates** — choose a default KRONK status bucket, then set any linked ClickUp task to that status from the ClickUp column
 - **Push time entries** — send individual task entries or all linked tasks at once to ClickUp's time tracking
 - **Sync indicators** — each entry shows whether it has been pushed (✓) or is pending (○)
 - **Re-push on edit** — editing a pushed entry's time marks it unsynced so it can be corrected in ClickUp
@@ -78,8 +79,12 @@ Open `KRONK-up.html` in a browser. That's it.
 |---|---|
 | Link a task to ClickUp | Click **Link** in the ClickUp column → search your list → select a task |
 | Create a new ClickUp task | Click **Link** → **Create new ClickUp task** |
+| Set the default status | Use **Default Status** in the top ClickUp config bar |
+| Update a linked task status | Pick a status in the linked task's ClickUp column |
 | Push time entries | Click **↑N** on a linked task, or **Push All** in the header |
 | Unlink a task | Hover the task row → click **✕** in the ClickUp column |
+
+KRONK-up stores the five app-level choices as status buckets: Not Started/Backlog, In-Progress, Waiting, Complete, and Cancelled. ClickUp still requires the exact status name configured on the selected List, so KRONK-up fetches the List statuses and matches common variants like `To Do`, `Backlog`, `In Progress`, `Blocked`, `Done`, `Closed`, `Canceled`, and `Won't Do`. If there is no good match, it leaves the task unchanged and shows a warning.
 
 ---
 
@@ -166,8 +171,9 @@ KRONK-up uses the following ClickUp v2 endpoints:
 | `GET` | `/folder/{id}/list` | Lists within a folder |
 | `GET` | `/space/{id}/list` | Folderless lists |
 | `GET` | `/list/{id}/task` | Fetch tasks for linking |
+| `GET` | `/list/{id}` | Fetch list status names for status matching |
 | `POST` | `/list/{id}/task` | Create a new task |
-| `PUT` | `/task/{id}` | Convert task to subtask |
+| `PUT` | `/task/{id}` | Convert task to subtask or update status |
 | `POST` | `/task/{id}/time` | Log a time entry |
 
 ---
