@@ -140,6 +140,43 @@
     box-shadow: 0 0 0 2px var(--accent-dim);
   }
 
+  .task-typeahead {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 520;
+    display: none;
+    max-height: 190px;
+    overflow-y: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .task-typeahead-item {
+    padding: 7px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid rgba(42,45,53,0.45);
+  }
+
+  .task-typeahead-item:last-child {
+    border-bottom: none;
+  }
+
+  .task-typeahead-item:first-child,
+  .task-typeahead-item:hover {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
   .btn {
     font-family: var(--mono);
     font-size: 11px;
@@ -678,6 +715,7 @@
   <div class="input-bar">
     <div class="input-wrap">
       <input type="text" class="task-input" id="taskNameInput" placeholder="Enter task name or use microphone →" autocomplete="off" />
+      <div class="task-typeahead" id="taskTypeahead"></div>
     </div>
     <button class="btn btn-mic" id="micBtn" title="Hold to record task name">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -966,10 +1004,21 @@
 
   // ── Actions ────────────────────────────────────────────────────────────────
   function addTask(name) {
-    if (!name.trim()) { toast('Please enter a task name'); return; }
-    const newTask = { id: uid(), name: name.trim(), group: '', entries: [] };
+    const trimmed = name.trim();
+    if (!trimmed) { toast('Please enter a task name'); return; }
+
+    const existing = getTaskNameMatch(trimmed);
+    if (existing) {
+      $('taskNameInput').value = '';
+      hideTaskTypeahead();
+      startTask(existing.id);
+      return;
+    }
+
+    const newTask = { id: uid(), name: trimmed, group: '', entries: [] };
     tasks.push(newTask);
     $('taskNameInput').value = '';
+    hideTaskTypeahead();
     startTask(newTask.id);
   }
 
@@ -977,6 +1026,11 @@
     stopAllRunning(taskId);
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
+    if (getRunningEntry(task)) {
+      render();
+      toast(`Already tracking: ${task.name || 'task'}`);
+      return;
+    }
     task.entries.push({ id: euid(), startTime: new Date(), endTime: null });
     render();
     toast(`Started: ${task.name || 'task'}`);
@@ -1003,6 +1057,12 @@
     if (!task) return;
     task.entries = task.entries.filter(e => e.id !== entryId);
     render();
+  }
+
+  function getTaskNameMatch(name) {
+    const needle = name.trim().toLowerCase();
+    if (!needle) return null;
+    return tasks.find(t => (t.name || '').trim().toLowerCase() === needle) || null;
   }
 
   // ── Event Delegation ───────────────────────────────────────────────────────
@@ -1040,6 +1100,19 @@
     const field = input.dataset.field;
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
+
+    if (field === 'name') {
+      const name = input.value.trim();
+      const duplicate = tasks.find(t =>
+        t.id !== taskId && (t.name || '').trim().toLowerCase() === name.toLowerCase()
+      );
+      if (!name || duplicate) {
+        input.value = task.name || '';
+        toast(duplicate ? 'Task names must be unique' : 'Task name cannot be empty');
+        return;
+      }
+    }
+
     task[field] = input.value;
     // Only re-render for name (to update header), not on every keystroke
     if (field === 'name') {
@@ -1099,13 +1172,69 @@
     return d;
   }
 
+  // ── New Task Typeahead ─────────────────────────────────────────────────────
+  function getTaskSuggestions(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return tasks
+      .filter(t => (t.name || '').toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 8);
+  }
+
+  function renderTaskTypeahead() {
+    const input = $('taskNameInput');
+    const matches = getTaskSuggestions(input.value);
+    const dropdown = $('taskTypeahead');
+
+    if (matches.length === 0 || document.activeElement !== input) {
+      hideTaskTypeahead();
+      return;
+    }
+
+    dropdown.innerHTML = matches.map(t =>
+      `<div class="task-typeahead-item" data-task-id="${t.id}">${escHtml(t.name)}</div>`
+    ).join('');
+    dropdown.style.display = 'block';
+  }
+
+  function hideTaskTypeahead() {
+    $('taskTypeahead').style.display = 'none';
+  }
+
+  function startTopTaskSuggestion() {
+    const match = getTaskSuggestions($('taskNameInput').value)[0];
+    if (!match) return false;
+    $('taskNameInput').value = '';
+    hideTaskTypeahead();
+    startTask(match.id);
+    return true;
+  }
+
   // ── Add Task Button ────────────────────────────────────────────────────────
   $('addTaskBtn').addEventListener('click', () => {
     addTask($('taskNameInput').value);
   });
 
   $('taskNameInput').addEventListener('keydown', e => {
+    if (e.key === 'Tab' && startTopTaskSuggestion()) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === 'Enter') addTask($('taskNameInput').value);
+  });
+
+  $('taskNameInput').addEventListener('input', renderTaskTypeahead);
+  $('taskNameInput').addEventListener('focus', renderTaskTypeahead);
+  $('taskNameInput').addEventListener('blur', () => setTimeout(hideTaskTypeahead, 100));
+
+  $('taskTypeahead').addEventListener('mousedown', e => {
+    const item = e.target.closest('.task-typeahead-item');
+    if (!item) return;
+    e.preventDefault();
+    $('taskNameInput').value = '';
+    hideTaskTypeahead();
+    startTask(Number(item.dataset.taskId));
   });
 
   // ── Speech to Text ─────────────────────────────────────────────────────────

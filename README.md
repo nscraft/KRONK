@@ -12,6 +12,7 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 
 ### Core (KRONK)
 - **Task log** — add named tasks with an optional Parent Task field
+- **Task typeahead** — search existing task names as you type; press `Tab` to start the top match
 - **Auto-start on create** — creating a task immediately starts its timer; any previously running timer is stopped automatically
 - **Start / Stop timer** — one active task at a time; switching auto-stops the previous
 - **Sticky STOP button** — a STOP button appears in the header whenever a timer is running, so you can stop from anywhere without scrolling
@@ -113,7 +114,8 @@ To clear all stored data: open DevTools → Application → Local Storage → de
 
 | Shortcut | Action |
 |---|---|
-| `Enter` in task name field | Create task and start its timer |
+| `Enter` in task name field | Create a custom task and start its timer |
+| `Tab` in task name field | Start the top matching typeahead task |
 | `Enter` in API key field | Connect to ClickUp |
 
 ---
