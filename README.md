@@ -12,6 +12,7 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 
 ### Core (KRONK)
 - **Task log** — add named tasks with an optional Parent Task field
+- **Task typeahead** — search existing task names as you type; press `Tab` to start the top match
 - **Auto-start on create** — creating a task immediately starts its timer; any previously running timer is stopped automatically
 - **Start / Stop timer** — one active task at a time; switching auto-stops the previous
 - **Sticky STOP button** — a STOP button appears in the header whenever a timer is running, so you can stop from anywhere without scrolling
@@ -28,6 +29,8 @@ It is a superset of **KRONK**, the base time tracker. Both files live in this re
 - **API key auth** — connect with a personal ClickUp API token; no OAuth, no backend
 - **Workspace → Space → List selector** — choose exactly which list to work against
 - **Link tasks** — search your ClickUp list by name and link to an existing task, or create a new one directly from KRONK-up
+- **ClickUp task typeahead** — the new-task field suggests tasks assigned to you in the selected ClickUp list plus KRONK tasks used in the past 48 hours
+- **Create assigned tasks** — tasks created in ClickUp from KRONK-up are assigned to the connected ClickUp user
 - **Parent task picker** — set a ClickUp parent task per row; linked tasks are created as subtasks automatically
 - **Push time entries** — send individual task entries or all linked tasks at once to ClickUp's time tracking
 - **Sync indicators** — each entry shows whether it has been pushed (✓) or is pending (○)
@@ -113,7 +116,8 @@ To clear all stored data: open DevTools → Application → Local Storage → de
 
 | Shortcut | Action |
 |---|---|
-| `Enter` in task name field | Create task and start its timer |
+| `Enter` in task name field | Create a custom task and start its timer |
+| `Tab` in task name field | Start the top matching typeahead task |
 | `Enter` in API key field | Connect to ClickUp |
 
 ---
