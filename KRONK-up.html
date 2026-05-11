@@ -29,7 +29,7 @@
     --cu-dim: rgba(124,58,237,0.12);
     --cu-glow: rgba(124,58,237,0.3);
     --cu-border: rgba(124,58,237,0.35);
-    --grid: 2fr 1fr 1fr 1fr 1fr 150px 90px;
+    --grid: 2fr 1fr 1fr 1fr 1fr 230px 90px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -179,6 +179,10 @@
   .cu-select:focus { border-color: var(--cu); }
   .cu-select:disabled { opacity: 0.4; cursor: default; }
   .cu-select option, .cu-select optgroup { background: #1e2128; }
+
+  .cu-default-status-select {
+    max-width: 210px;
+  }
 
   .cu-divider {
     width: 1px;
@@ -786,6 +790,7 @@
     gap: 5px;
     min-width: 0;
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .cu-badge {
@@ -801,8 +806,44 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 90px;
+    max-width: 118px;
     flex-shrink: 1;
+  }
+
+  .cu-current-status {
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cu-status-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .cu-status-select {
+    min-width: 0;
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    padding: 3px 5px;
+    outline: none;
+  }
+
+  .cu-status-select:focus {
+    border-color: var(--cu);
   }
 
   .cu-push-btn {
@@ -1092,6 +1133,14 @@
       <select class="cu-select" id="cuListSelect" disabled>
         <option value="">— select —</option>
       </select>
+      <span class="cu-label">Default Status</span>
+      <select class="cu-select cu-default-status-select" id="cuDefaultStatusSelect">
+        <option value="not_started">Not Started/Backlog</option>
+        <option value="in_progress">In-Progress</option>
+        <option value="waiting">Waiting</option>
+        <option value="complete">Complete</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
     </div>
 
 
@@ -1277,6 +1326,22 @@ function toast(msg, type = '', duration = 2800) {
 // ════════════════════════════════════════════════════════════════════════════
 const CU_BASE = 'https://api.clickup.com/api/v2';
 
+const CU_STATUS_BUCKETS = [
+  { value: 'not_started', label: 'Not Started/Backlog' },
+  { value: 'in_progress', label: 'In-Progress' },
+  { value: 'waiting', label: 'Waiting' },
+  { value: 'complete', label: 'Complete' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+const CU_STATUS_ALIASES = {
+  not_started: ['not started', 'backlog', 'to do', 'todo', 'open', 'new', 'planned', 'planning', 'ready', 'not started backlog'],
+  in_progress: ['in progress', 'in-progress', 'inprogrress', 'in progrress', 'doing', 'active', 'working', 'started', 'wip'],
+  waiting: ['waiting', 'blocked', 'on hold', 'hold', 'pending', 'awaiting', 'needs review', 'review'],
+  complete: ['complete', 'completed', 'done', 'closed', 'finished', 'resolved'],
+  cancelled: ['cancelled', 'canceled', 'cancelled/canceled', 'cancel', 'wont do', "won't do", 'rejected', 'dropped'],
+};
+
 let cu = {
   apiKey: '',
   workspaceId: '',
@@ -1284,8 +1349,11 @@ let cu = {
   userName: '',
   spaceId: '',
   listId: '',
+  defaultStatusBucket: 'not_started',
   connected: false,
   listTasks: [],
+  listStatuses: [],
+  statusesByListId: {},
 };
 
 function cuSave() {
@@ -1296,6 +1364,7 @@ function cuSave() {
     userName: cu.userName,
     spaceId: cu.spaceId,
     listId: cu.listId,
+    defaultStatusBucket: cu.defaultStatusBucket,
   }));
 }
 
@@ -1308,6 +1377,7 @@ function cuLoad() {
     cu.userName     = s.userName     || '';
     cu.spaceId      = s.spaceId      || '';
     cu.listId       = s.listId       || '';
+    cu.defaultStatusBucket = s.defaultStatusBucket || 'not_started';
   } catch(e) {}
 }
 
@@ -1367,6 +1437,7 @@ async function cuConnect() {
       $('cuSpaceSelect').value = cu.spaceId;
       await cuLoadLists(cu.spaceId, true);
     }
+    $('cuDefaultStatusSelect').value = cu.defaultStatusBucket;
     render();
   } catch(e) {
     cu.connected = false;
@@ -1452,13 +1523,25 @@ async function cuCacheListTasks() {
   if (!cu.userId) { cu.listTasks = []; toast('Could not identify current ClickUp user'); return; }
   try {
     // subtasks=true returns subtasks nested inside parent.subtasks[] — we flatten them
-    const data = await cuApi(`/list/${cu.listId}/task?archived=false&page=0&subtasks=true&assignees[]=${encodeURIComponent(cu.userId)}`);
+    const [data] = await Promise.all([
+      cuApi(`/list/${cu.listId}/task?archived=false&page=0&subtasks=true&assignees[]=${encodeURIComponent(cu.userId)}`),
+      cuLoadListStatuses(cu.listId),
+    ]);
     cu.listTasks = _flattenTasks(data.tasks || []);
     rememberCurrentListForLinkedTasks();
   } catch(e) {
     cu.listTasks = [];
     toast('Could not load task list from ClickUp');
   }
+}
+
+async function cuLoadListStatuses(listId) {
+  if (!listId) return [];
+  const data = await cuApi(`/list/${listId}`);
+  const statuses = Array.isArray(data.statuses) ? data.statuses : [];
+  cu.statusesByListId[listId] = statuses;
+  if (String(listId) === String(cu.listId)) cu.listStatuses = statuses;
+  return statuses;
 }
 
 function rememberCurrentListForLinkedTasks() {
@@ -1514,11 +1597,15 @@ function setTaskClickUpLink(task, cuTask) {
   task.clickupTaskName = cuTask.name;
   task.clickupSpaceId  = cu.spaceId || task.clickupSpaceId || null;
   task.clickupListId   = cu.listId || task.clickupListId || null;
+  task.clickupStatusName = cuTask.status?.status || task.clickupStatusName || '';
+  task.clickupStatusType = cuTask.status?.type || task.clickupStatusType || '';
 }
 
-function cuCreateTaskBody(name) {
+function cuCreateTaskBody(name, statusBucket = cu.defaultStatusBucket) {
   const body = { name };
   if (cu.userId) body.assignees = [Number(cu.userId) || cu.userId];
+  const status = findClickUpStatusMatch(cu.listStatuses, statusBucket);
+  if (status) body.status = status.status;
   return body;
 }
 
@@ -1588,6 +1675,102 @@ function _cuErrMsg(e) {
   }
 }
 
+function normalizeStatusName(name) {
+  return (name || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function getStatusBucketLabel(bucket) {
+  return CU_STATUS_BUCKETS.find(s => s.value === bucket)?.label || bucket;
+}
+
+function renderStatusOptions(selectedBucket) {
+  return CU_STATUS_BUCKETS.map(s =>
+    `<option value="${s.value}"${s.value === selectedBucket ? ' selected' : ''}>${s.label}</option>`
+  ).join('');
+}
+
+function findClickUpStatusMatch(statuses, bucket) {
+  const available = (statuses || []).filter(s => s && s.status);
+  if (!available.length) return null;
+
+  const aliases = (CU_STATUS_ALIASES[bucket] || [bucket]).map(normalizeStatusName);
+  const byName = available.find(s => normalizeStatusName(s.status) === normalizeStatusName(getStatusBucketLabel(bucket)));
+  if (byName) return byName;
+
+  const byAlias = available.find(s => aliases.includes(normalizeStatusName(s.status)));
+  if (byAlias) return byAlias;
+
+  const typeFallback = available.find(s => {
+    const type = normalizeStatusName(s.type);
+    if (bucket === 'complete') return type === 'done' || type === 'closed';
+    if (bucket === 'not_started') return type === 'open';
+    return false;
+  });
+  if (typeFallback) return typeFallback;
+
+  if (bucket === 'not_started') {
+    return available.slice().sort((a, b) => (Number(a.orderindex) || 0) - (Number(b.orderindex) || 0))[0] || null;
+  }
+
+  return null;
+}
+
+function getKnownStatusesForTask(task) {
+  const listId = task.clickupListId || cu.listId;
+  const fromList = listId ? cu.statusesByListId[listId] : null;
+  if (Array.isArray(fromList) && fromList.length) return fromList;
+  if (Array.isArray(cu.listStatuses) && cu.listStatuses.length && String(listId) === String(cu.listId)) return cu.listStatuses;
+
+  const seen = new Map();
+  cu.listTasks.forEach(t => {
+    if (t.status?.status && !seen.has(t.status.status)) seen.set(t.status.status, t.status);
+  });
+  return [...seen.values()];
+}
+
+async function getStatusesForTask(task) {
+  const listId = task.clickupListId || cu.listId;
+  if (listId && !cu.statusesByListId[listId]) {
+    try {
+      return await cuLoadListStatuses(listId);
+    } catch(e) {
+      return getKnownStatusesForTask(task);
+    }
+  }
+  return getKnownStatusesForTask(task);
+}
+
+async function cuUpdateTaskStatus(kronikId, bucket) {
+  const task = tasks.find(t => t.id === kronikId);
+  if (!task || !task.clickupTaskId) return;
+  task.clickupStatusBucket = bucket;
+  saveTasks();
+
+  const statuses = await getStatusesForTask(task);
+  const target = findClickUpStatusMatch(statuses, bucket);
+  if (!target) {
+    toast(`No ClickUp status matched "${getStatusBucketLabel(bucket)}" in this list`, 'warn', 5000);
+    render();
+    return;
+  }
+
+  try {
+    const data = await cuApi(`/task/${task.clickupTaskId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: target.status }),
+    });
+    const updatedStatus = data.status || target;
+    task.clickupStatusName = updatedStatus.status || target.status;
+    task.clickupStatusType = updatedStatus.type || target.type || '';
+    const cached = cu.listTasks.find(t => t.id === task.clickupTaskId);
+    if (cached) cached.status = updatedStatus;
+    toast(`Status set → ${task.clickupStatusName}`, 'cu-toast');
+  } catch(e) {
+    toast(`Failed to update status: ${_cuErrMsg(e)}`, 'warn', 5000);
+  }
+  render();
+}
+
 // ── Push time entries ────────────────────────────────────────────────────────
 async function cuPushEntries(kronikId) {
   const task = tasks.find(t => t.id === kronikId);
@@ -1655,17 +1838,25 @@ function renderCuTaskCell(task) {
   const shortName = task.clickupTaskName.length > 16
     ? task.clickupTaskName.slice(0, 16) + '…'
     : task.clickupTaskName;
+  const selectedBucket = task.clickupStatusBucket || cu.defaultStatusBucket;
+  const currentStatus = task.clickupStatusName ? escHtml(task.clickupStatusName) : 'status unknown';
 
   return `<div class="cu-linked-wrap">
     <span class="cu-badge" title="${escHtml(task.clickupTaskName)}">
       <svg width="6" height="6" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg>
       ${escHtml(shortName)}
     </span>
+    <span class="cu-current-status" title="Current ClickUp status">${currentStatus}</span>
     ${pendingCount > 0
       ? `<button class="cu-push-btn" data-cu-push="${task.id}" title="Push ${pendingCount} unsynced entr${pendingCount===1?'y':'ies'}">↑${pendingCount}</button>`
       : `<span class="cu-synced-label">✓</span>`
     }
     <button class="cu-unlink-btn" data-cu-unlink="${task.id}" title="Unlink">✕</button>
+    <div class="cu-status-row">
+      <select class="cu-status-select" data-cu-status-select="${task.id}" title="Status to set in ClickUp">
+        ${renderStatusOptions(selectedBucket)}
+      </select>
+    </div>
   </div>`;
 }
 
@@ -1849,6 +2040,7 @@ function addTask(name) {
     id: uid(), name: trimmed, group: '', entries: [],
     clickupTaskId: null, clickupTaskName: '',
     clickupSpaceId: null, clickupListId: null,
+    clickupStatusName: '', clickupStatusType: '', clickupStatusBucket: '',
     parentCuTaskId: null, parentCuTaskName: '',
   };
   tasks.push(newTask);
@@ -1934,6 +2126,12 @@ $('taskList').addEventListener('click', e => {
   // ClickUp: unlink button
   const cuUnlink = e.target.closest('[data-cu-unlink]');
   if (cuUnlink) { cuUnlinkTask(Number(cuUnlink.dataset.cuUnlink)); return; }
+});
+
+$('taskList').addEventListener('change', e => {
+  const select = e.target.closest('[data-cu-status-select]');
+  if (!select) return;
+  cuUpdateTaskStatus(Number(select.dataset.cuStatusSelect), select.value);
 });
 
 // Inline edit task fields
@@ -2171,6 +2369,7 @@ async function selectTaskSuggestion(suggestion) {
       id: uid(), name: cuTask.name, group: '', entries: [],
       clickupTaskId: null, clickupTaskName: '',
       clickupSpaceId: null, clickupListId: null,
+      clickupStatusName: '', clickupStatusType: '', clickupStatusBucket: '',
       parentCuTaskId: null, parentCuTaskName: '',
     };
     tasks.push(task);
@@ -2451,6 +2650,7 @@ $('cuApiKey').addEventListener('keydown', e => { if (e.key === 'Enter') cuConnec
 
 $('cuSpaceSelect').addEventListener('change', async e => {
   cu.listId = '';
+  cu.listStatuses = [];
   await cuLoadLists(e.target.value);
   cu.listTasks = [];
   render();
@@ -2458,8 +2658,15 @@ $('cuSpaceSelect').addEventListener('change', async e => {
 
 $('cuListSelect').addEventListener('change', async e => {
   cu.listId = e.target.value;
+  cu.listStatuses = [];
   cuSave();
   if (cu.listId) await cuCacheListTasks();
+  render();
+});
+
+$('cuDefaultStatusSelect').addEventListener('change', e => {
+  cu.defaultStatusBucket = e.target.value;
+  cuSave();
   render();
 });
 
@@ -2593,6 +2800,7 @@ window.addEventListener('beforeunload', () => {
 // ════════════════════════════════════════════════════════════════════════════
 cuLoad();
 loadTasks();
+$('cuDefaultStatusSelect').value = cu.defaultStatusBucket;
 if (cu.apiKey) {
   $('cuApiKey').value = cu.apiKey;
   // Auto-reconnect on load if key was saved
